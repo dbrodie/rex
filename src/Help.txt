@@ -1,0 +1,26 @@
+Welcome to Hyksa!
+Your friendly neighborhood hex editor.
+
+Here are the basic keys that used for now:
+Arrows, PageUp/Down, Home/End - Move around as you would expect
+
+General:
+C-? - Help (this screen)
+C-` - Quit
+C-E - Edit file
+C-W - Write a file
+
+Editing:
+C-O - Toggle between overwrite and insert mode (overwrite default)
+Tab - Move between byte and ascii view
+Del/Bksp - As you would expect
+Edit using regular keys.
+C-Z - Undo
+C-G - Goto position
+C-F - Find text/bytes
+
+Selection:
+C-S - Toggle selection mode
+C-X/C/V - Cut/Copy/Paste respectively, as you would expect
+
+
