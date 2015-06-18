@@ -10,7 +10,7 @@ pub fn slice_set<T:Clone>(dest: &mut [T], src: &[T]) {
 	}
 }
 
-pub fn iter_set<'a, 'b, T: Clone, A: Iterator<&'a T>, B: Iterator<&'b mut T>>(dest: B, src: A) {
+pub fn iter_set<'a, 'b, T: Clone, A: Iterator<Item=&'a T>, B: Iterator<Item=&'b mut T>>(dest: B, src: A) {
 	// TODO: Fail (how?) when they are not the same length?
 
 	for (s, d) in src.zip(dest) {
@@ -18,7 +18,7 @@ pub fn iter_set<'a, 'b, T: Clone, A: Iterator<&'a T>, B: Iterator<&'b mut T>>(de
 	}
 }
 
-pub fn iter_equals<A: Eq, T: Iterator<A>, U: Iterator<A>>(mut a: T, mut b: U) -> bool {
+pub fn iter_equals<A: Eq, T: Iterator<Item=A>, U: Iterator<Item=A>>(mut a: T, mut b: U) -> bool {
     loop {
         match (a.next(), b.next()) {
             (None, None) => return true,

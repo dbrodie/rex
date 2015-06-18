@@ -5,6 +5,7 @@ use std::cmp;
 use serialize::hex::FromHex;
 use std::char;
 use std::path::Path;
+use std;
 
 use super::buffer;
 
@@ -178,7 +179,7 @@ impl GotoInputLine {
 	fn new() -> GotoInputLine {
 		GotoInputLine {
 			base : BaseInputLine::new("Goto (Dec):".to_string()),
-			radix : DecRadix,
+			radix : RadixType::DecRadix,
 			done_state : None,
 		}
 	}
@@ -186,9 +187,9 @@ impl GotoInputLine {
 	fn set_radix(&mut self, r : RadixType) {
 		self.radix = r;
 		self.base.prefix = match self.radix {
-			DecRadix => "Goto (Dec):".to_string(),
-			HexRadix => "Goto (Hex):".to_string(),
-			OctRadix => "Goto (Oct):".to_string(),
+			RadixType::DecRadix => "Goto (Dec):".to_string(),
+			RadixType::HexRadix => "Goto (Hex):".to_string(),
+			RadixType::OctRadix => "Goto (Oct):".to_string(),
 		}
 	}
 }
@@ -201,9 +202,9 @@ impl InputLine for GotoInputLine {
 			(0, 13, 0) => { self.done_state = Some(true) ; true }
 			(0, 27, 0) => { self.done_state = Some(false) ; true }
 
-			(0, 4, 0)  => { self.set_radix(DecRadix) ; true }
-			(0, 24, 0) => { self.set_radix(HexRadix) ; true }
-			(0, 15, 0) => { self.set_radix(OctRadix) ; true }
+			(0, 4, 0)  => { self.set_radix(RadixType::DecRadix) ; true }
+			(0, 24, 0) => { self.set_radix(RadixType::HexRadix) ; true }
+			(0, 15, 0) => { self.set_radix(RadixType::OctRadix) ; true }
 
 			_ => false
 		}
@@ -221,13 +222,13 @@ impl InputLine for GotoInputLine {
 		};
 
 		let radix = match self.radix {
-			DecRadix => 10,
-			HexRadix => 16,
-			OctRadix => 8,
+			RadixType::DecRadix => 10,
+			RadixType::HexRadix => 16,
+			RadixType::OctRadix => 8,
 		};
 
 		let pos : Option<isize> = match String::from_utf8(self.base.data.clone()) {
-			Ok(gs) => from_str_radix(gs.as_slice(), radix),
+			Ok(gs) => isize::from_str_radix(gs.as_slice(), radix),
 			Err(_) => None
 		};
 
@@ -260,7 +261,7 @@ impl FindInputLine {
 	fn new() -> FindInputLine {
 		FindInputLine {
 			base : BaseInputLine::new("Find(Ascii): ".to_string()),
-			data_type : AsciiStr,
+			data_type : DataType::AsciiStr,
 			done_state : None,
 		}
 	}
@@ -268,9 +269,9 @@ impl FindInputLine {
 	fn set_search_data_type(&mut self, dt: DataType) {
 		self.data_type = dt;
 		self.base.prefix = match self.data_type {
-			AsciiStr => "Find(Ascii): ".to_string(),
-			UnicodeStr => "Find(Uni): ".to_string(),
-			HexStr => "Find(Hex): ".to_string(),
+			DataType::AsciiStr => "Find(Ascii): ".to_string(),
+			DataType::UnicodeStr => "Find(Uni): ".to_string(),
+			DataType::HexStr => "Find(Hex): ".to_string(),
 		}
 	}
 }
@@ -283,9 +284,9 @@ impl InputLine for FindInputLine {
 			(0, 13, 0) => { self.done_state = Some(true) ; true }
 			(0, 27, 0) => { self.done_state = Some(false) ; true }
 
-			(0, 1, 0)  => { self.set_search_data_type(AsciiStr); true }
-			(0, 21, 0)  => { self.set_search_data_type(UnicodeStr); true }
-			(0, 24, 0) => { self.set_search_data_type(HexStr) ; true }
+			(0, 1, 0)  => { self.set_search_data_type(DataType::AsciiStr); true }
+			(0, 21, 0)  => { self.set_search_data_type(DataType::UnicodeStr); true }
+			(0, 24, 0) => { self.set_search_data_type(DataType::HexStr) ; true }
 
 			_ => false
 		}
@@ -308,9 +309,9 @@ impl InputLine for FindInputLine {
 
 
 		let needle :&[u8] = match self.data_type {
-			AsciiStr => self.base.data.as_slice(),
-			UnicodeStr => self.base.data.as_slice(),
-			HexStr => {
+			DataType::AsciiStr => self.base.data.as_slice(),
+			DataType::UnicodeStr => self.base.data.as_slice(),
+			DataType::HexStr => {
 				match ll {
 					Ok(ref n) => n.as_slice(),
 					Err(_) => {
@@ -608,29 +609,29 @@ impl HexEdit{
 		let mut end_region : isize;
 
 		match act {
-			Insert(offset, buf) => {
+			UndoAction::Insert(offset, buf) => {
 				begin_region = offset;
 				end_region = offset + buf.len() as isize;
 
 				self.buffer.insert(offset as usize, buf.as_slice());
-				if add_to_undo { self.push_undo(Delete(offset, offset + buf.len() as isize)) }
+				if add_to_undo { self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize)) }
 				self.recalculate(); 
 			}
-			Delete(offset, end) => {
+			UndoAction::Delete(offset, end) => {
 				begin_region = offset;
 				end_region = end;
 
 				let res = self.buffer.remove(offset as usize, end as usize);
-				if add_to_undo { self.push_undo(Insert(offset, res)) }
+				if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
 				self.recalculate();
 			}
-			Write(offset, buf)  => {
+			UndoAction::Write(offset, buf)  => {
 				begin_region = offset;
 				end_region = offset + buf.len() as isize;
 
 				let orig_data = self.buffer.read(offset as usize, buf.len());
 				self.buffer.write(offset as usize, buf.as_slice());
-				if add_to_undo { self.push_undo(Write(offset, orig_data)) }
+				if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
 			}
 		}
 
@@ -689,7 +690,7 @@ impl HexEdit{
 		}
 
 		self.selection_start = None;
-		self.do_action(Delete(del_start, del_stop), true);
+		self.do_action(UndoAction::Delete(del_start, del_stop), true);
 		self.set_cursor(del_start*2);
 
 	}
@@ -717,7 +718,7 @@ impl HexEdit{
 		};
 
 		let byte_offset = self.cursor_pos/2;
-		self.do_action(Write(byte_offset, vec!(byte)), true);
+		self.do_action(UndoAction::Write(byte_offset, vec!(byte)), true);
 	}
 
 	fn insert_nibble_at_cursor(&mut self, c : u8) {
@@ -728,7 +729,7 @@ impl HexEdit{
 		}
 
 		let pos_div2 = self.cursor_pos/2;
-		self.do_action(Insert(pos_div2, vec!(c*16)), true);
+		self.do_action(UndoAction::Insert(pos_div2, vec!(c*16)), true);
 	}
 
 	fn toggle_insert_mode(&mut self) {
@@ -744,9 +745,9 @@ impl HexEdit{
 
 		let byte_offset = self.cursor_pos/2;
 		if self.insert_mode || self.cursor_at_end() {
-			self.do_action(Insert(byte_offset, vec!(c)), true);
+			self.do_action(UndoAction::Insert(byte_offset, vec!(c)), true);
 		} else {
-			self.do_action(Write(byte_offset, vec!(c)), true);
+			self.do_action(UndoAction::Write(byte_offset, vec!(c)), true);
 		}
 	}
 
@@ -850,7 +851,7 @@ impl HexEdit{
 		};
 
 		let pos_div2 = self.cursor_pos/2;
-		self.do_action(Insert(pos_div2, data), true);
+		self.do_action(UndoAction::Insert(pos_div2, data), true);
 	}
 
 	fn view_input(&mut self, emod: u8, key: u16, ch: u32) {
@@ -867,7 +868,7 @@ impl HexEdit{
  			(0, 0xFFEF, _) => { let t = -(self.nibble_size - self.nibble_width) / 2; self.move_cursor(t) }
  			(0, 0xFFEE, _) => { let t = (self.nibble_size - self.nibble_width) / 2; self.move_cursor(t) }
 
- 			// Delete
+ 			// UndoAction::Delete
  			(0, 0xFFF2, _) => self.delete_at_cursor(false),
  			(0, 127, 0) => self.delete_at_cursor(true),
 

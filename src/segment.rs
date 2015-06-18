@@ -244,7 +244,8 @@ impl fmt::Debug for Segment {
 	}
 }
 
-impl<'a> Iterator<Index> for Indexes<'a> {
+impl<'a> Iterator for Indexes<'a> {
+	type Item = Index;
 	fn next(&mut self) -> Option<Index> {
 		if self.index.outer >= self.seg.vecs.len() {
 			return None;
@@ -261,7 +262,8 @@ impl<'a> Iterator<Index> for Indexes<'a> {
 	}
 }
 
-impl<'a> Iterator<&'a u8> for Items<'a> {
+impl<'a> Iterator for Items<'a> {
+	type Item=&'a u8;
 	fn next(&mut self) -> Option<&'a u8> {
 		let idx = self.index;
 
@@ -288,7 +290,8 @@ impl<'a> Iterator<&'a u8> for Items<'a> {
 	}
 }
 
-impl<'a> Iterator<&'a mut u8> for MutItems<'a> {
+impl<'a> Iterator for MutItems<'a> {
+	type Item=&'a mut u8;
 	fn next(&mut self) -> Option<&'a mut u8> {
 		let idx = self.index;
 
@@ -320,7 +323,8 @@ impl<'a> Iterator<&'a mut u8> for MutItems<'a> {
 }
 
 
-impl<'a> Iterator<&'a [u8]> for Slices<'a> {
+impl<'a> Iterator for Slices<'a> {
+	type Item = &'a [u8];
 	fn next(&mut self) -> Option<&'a [u8]> {
 		if self.outer >= self.seg.vecs.len() {
 			None
