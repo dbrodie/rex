@@ -56,7 +56,8 @@ impl OverlayText {
 		let repeat : iter::Repeat<Option<&str>> = iter::repeat(None);
 		let mut iter = self.text.lines().map(
 			// Chomp the width of each line
-				|line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
+				|line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize )])
+				// |line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
 			// Add "empty lines" - we need this so we clear the screen on empty lines
 				).chain(repeat)
 			// Take only as many lines as needed
@@ -66,8 +67,9 @@ impl OverlayText {
 
 		for (i, opt_line) in iter {
 			// Clean the line
+			let v: Vec<_> = iter::repeat(' ' as u8).take((area.right - area.left) as usize).collect();
 			rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL, Color::White, Color::Black,
-				String::from_chars(vec::Vec::from_elem((area.right - area.left) as usize, ' ').as_slice()).as_slice());
+				&String::from_utf8(v).unwrap());
 
 			// And draw the text if there is one
 			match opt_line {
@@ -110,7 +112,7 @@ impl BaseInputLine {
 
 impl InputLine for BaseInputLine {
 	fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-		let ascii_ch = (ch as u8).to_ascii();
+		let printable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".find((ch as u8 ) as char).is_some();
 		match (emod, key, ch) {
 			(0, 0xFFEB, _) => {
 				if self.input_pos > 0 {
@@ -123,7 +125,7 @@ impl InputLine for BaseInputLine {
 				}
 			}
 
-			(0, 0, _) if ascii_ch.is_print() => {
+			(0, 0, _) if printable => {
 				self.data.insert(self.input_pos as usize, ch as u8);
 				self.input_pos += 1;
 			},
