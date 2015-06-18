@@ -14,7 +14,7 @@ use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
 ////////////////
 fn u4_to_hex(b: u8) -> char {
-	char::from_digit(b as usize, 16).unwrap()
+	char::from_digit(b as u32, 16).unwrap()
 }
 fn u8_to_hex(b: u8) -> (char, char) {
 	(u4_to_hex((b>>4)&0xF), u4_to_hex(b&0xF))
@@ -53,8 +53,8 @@ impl OverlayText {
 	}
 
 	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool) {
-		let repeat : iter::Repeat<Option<&str>> = iter::Repeat::new(None);
-		let mut iter = self.text.as_slice().lines().map(
+		let repeat : iter::Repeat<Option<&str>> = iter::repeat(None);
+		let mut iter = self.text.lines().map(
 			// Chomp the width of each line
 				|line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
 			// Add "empty lines" - we need this so we clear the screen on empty lines
@@ -88,7 +88,7 @@ impl OverlayText {
 
 trait InputLine {
 	fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool;
-	fn draw(&mut self, area : Rect<isize>, has_focus : bool);
+	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool);
 	fn do_action(&mut self, h : &mut HexEdit) -> bool;
 }
 
@@ -210,8 +210,8 @@ impl InputLine for GotoInputLine {
 		}
 	}
 
-	fn draw(&mut self, area : Rect<isize>, has_focus : bool) {
-		self.base.draw(area, has_focus)
+	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool) {
+		self.base.draw(rb, area, has_focus)
 	}
 
 	fn do_action(&mut self, h : &mut HexEdit) -> bool {
@@ -292,8 +292,8 @@ impl InputLine for FindInputLine {
 		}
 	}
 
-	fn draw(&mut self, area : Rect<isize>, has_focus : bool) {
-		self.base.draw(area, has_focus)
+	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool) {
+		self.base.draw(rb, area, has_focus)
 	}
 
 	fn do_action(&mut self, h : &mut HexEdit) -> bool {
@@ -361,8 +361,8 @@ impl InputLine for PathInputLine {
 		}
 	}
 
-	fn draw(&mut self, area : Rect<isize>, has_focus : bool) {
-		self.base.draw(area, has_focus)
+	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool) {
+		self.base.draw(rb, area, has_focus)
 	}
 
 	fn do_action(&mut self, h : &mut HexEdit) -> bool {
@@ -392,7 +392,7 @@ pub struct HexEdit{
 	buffer : buffer::Buffer,
 	cursor_pos : isize,
 	cur_height : isize,
-	cur_width : 	isize,
+	cur_width : isize,
 	nibble_width : isize,
 	nibble_size : isize,
 	data_size : isize,
@@ -405,7 +405,7 @@ pub struct HexEdit{
 	undo_stack : Vec<UndoAction>,
 	input_entry : Option<Box<InputLine>>,
 	overlay : Option<OverlayText>,
-	cur_path : Option<Path>,
+	cur_path : Option<Box<Path>>,
 	clipboard : Option<Vec<u8>>,
 }
 
@@ -542,7 +542,7 @@ impl HexEdit{
 		}
 
 		match self.input_entry.as_mut() {
-			Some(entry) => entry.draw(Rect { 
+			Some(entry) => entry.draw(rb, Rect { 
 							top : (rb.height()-2) as isize,
 							bottom : (rb.height()-1) as isize,
 							left : 0,
@@ -551,7 +551,7 @@ impl HexEdit{
 		};
 
 		match self.overlay.as_mut() {
-			Some(entry) => entry.draw(Rect {
+			Some(entry) => entry.draw(rb, Rect {
 				top: 0,
 				bottom: self.cur_height,
 				left: 0,
@@ -583,7 +583,7 @@ impl HexEdit{
 		match buffer::Buffer::from_path(path) {
 			Ok(buf) => {
 				self.buffer = buf;
-				self.cur_path = Some(path.clone());
+				self.cur_path = Some(Box::new(path.clone()));
 				self.reset();
 			}
 			Err(e) => {
@@ -595,7 +595,7 @@ impl HexEdit{
 	pub fn save(&mut self, path: &Path) {
 		match self.buffer.save(path) {
 			Ok(_) => {
-				self.cur_path = Some(path.clone());
+				self.cur_path = Some(Box::new(path.clone()));
 			}
 			Err(e) => {
 				self.status(format!("ERROR: {}", e.desc));
