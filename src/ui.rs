@@ -155,7 +155,7 @@ impl InputLine for BaseInputLine {
 		rb.print(area.left as usize, area.top as usize, RB_NORMAL, Color::White, Color::Blue,
 			&string_with_repeat(' ', (area.right - area.left) as usize));
 		rb.print(area.left as usize, area.top as usize, RB_BOLD, Color::White, Color::Blue,
-			&format!("{}{}", self.prefix, String::from_utf8(self.data.clone()).unwrap()));
+			&format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
 		if has_focus {
 			rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));
 		}
@@ -231,7 +231,7 @@ impl InputLine for GotoInputLine {
 			RadixType::OctRadix => 8,
 		};
 
-		let pos : Option<isize> = match String::from_utf8(self.base.data.clone()) {
+		let pos : Option<isize> = match str::from_utf8(&self.base.data) {
 			Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
 			Err(_) => None
 		};
@@ -307,9 +307,8 @@ impl InputLine for FindInputLine {
 			Some(true) =>  ()  // We do it after the match
 		};
 
-		// Hack since I can't figure out lifetimes...
-		// let jj = self.base.data.clone();
-		let ll = String::from_utf8(self.base.data.clone()).unwrap().from_hex();
+
+		let ll = str::from_utf8(&self.base.data).unwrap().from_hex();
 
 
 		let needle :&[u8] = match self.data_type {
@@ -377,9 +376,9 @@ impl InputLine for PathInputLine {
 		};
 
 		if self.do_save {
-			h.save(&Path::new(&String::from_utf8(self.base.data).unwrap()));
+			h.save(&Path::new(str::from_utf8(&self.base.data).unwrap()));
 		} else {
-			h.open(&Path::new(&String::from_utf8(self.base.data).unwrap()));
+			h.open(&Path::new(str::from_utf8(&self.base.data).unwrap()));
 		}
 
 		return true;
