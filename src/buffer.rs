@@ -1,6 +1,8 @@
 use std::io;
 use std::fs::File;
 use std::path::Path;
+use std::io::Read;
+use std::io::Write;
 
 use super::util;
 use super::segment;
@@ -11,8 +13,11 @@ pub struct Buffer {
 
 impl Buffer {
 	pub fn from_path(p: &Path) -> io::Result<Buffer> {
-		File::open(p).read_to_end().map( |b| Buffer {
-			segment: segment::Segment::from_vec(b)
+		let mut v = vec!();
+		let mut f = try!(File::open(p));
+		try!(f.read_to_end(&mut v)); 
+		Ok(Buffer {
+			segment: segment::Segment::from_vec(v)
 		})
 	}
 
@@ -20,7 +25,7 @@ impl Buffer {
 		let f_r = File::create(to);
 		f_r.and_then( |mut f|
 			self.segment.iter_slices().fold(Ok(()), |res, val| 
-				res.and_then( |_| f.write(val)
+				res.and_then( |_| f.write_all(val)
 			)
 		))
 	}
@@ -38,7 +43,10 @@ impl Buffer {
 	}
 
 	pub fn write(&mut self, offset: usize, val: &[u8]) {
-		util::iter_set(self.segment.mut_iter_range(offset, offset+val.len()), val.iter());
+		// util::iter_set(self.segment.mut_iter_range(offset, offset+val.len()), val.iter());
+		for (s, d) in val.iter().zip(self.segment.mut_iter_range(offset, offset+val.len())) {
+			*d = s.clone();
+		}
 	}
 
 	pub fn read(&self, offset: usize, len: usize) -> Vec<u8> {

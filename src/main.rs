@@ -19,27 +19,27 @@ fn main() {
     let mut edit = ui::HexEdit::new();
 
     if args.len() > 1 {
-        edit.open(&Path::new(args.nth(1).as_slice()));
+        edit.open(&Path::new(&args.nth(1).unwrap()));
     }
 
-    let rb = RustBox::init(Default::default());
+    let rb = RustBox::init(Default::default()).unwrap();
 
     edit.resize(rb.width() as i32, rb.height() as i32);
-    edit.draw(rb);
+    edit.draw(&rb);
     // tb::set_cursor(0, 0);
     rb.present();
     // tb::set_cursor(2, 0);
     loop {
-    	let event = rb.poll_event();
+    	let event = rb.poll_event(true).unwrap();
     	// println!("{:?}", event);
 	    match event {
-	    	Event::KeyEvent(0, 0, 0) => break,
-	    	Event::KeyEvent(m, k, c) => edit.input(m, k, c),
+	    	Event::KeyEventRaw(0, 0, 0) => break,
+	    	Event::KeyEventRaw(m, k, c) => edit.input(m, k, c),
 	    	Event::ResizeEvent(w, h) => { edit.resize(w, h) }
 	    	_ => ()
 	    };
 	    rb.clear();
-	    edit.draw(rb);
+	    edit.draw(&rb);
 	    rb.present();
 	}
     drop(rb);

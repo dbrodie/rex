@@ -5,7 +5,10 @@ use std::cmp;
 use serialize::hex::FromHex;
 use std::char;
 use std::path::Path;
+use std::path::PathBuf;
 use std;
+use util::string_with_repeat;
+use std::error::Error;
 
 use super::buffer;
 
@@ -67,9 +70,9 @@ impl OverlayText {
 
 		for (i, opt_line) in iter {
 			// Clean the line
-			let v: Vec<_> = iter::repeat(' ' as u8).take((area.right - area.left) as usize).collect();
+			
 			rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL, Color::White, Color::Black,
-				&String::from_utf8(v).unwrap());
+				&string_with_repeat(' ', (area.right - area.left) as usize));
 
 			// And draw the text if there is one
 			match opt_line {
@@ -150,10 +153,9 @@ impl InputLine for BaseInputLine {
 
 	fn draw(&mut self, rb: &RustBox, area : Rect<isize>, has_focus : bool) {
 		rb.print(area.left as usize, area.top as usize, RB_NORMAL, Color::White, Color::Blue,
-			String::from_chars(vec::Vec::from_elem((area.right - area.left) as usize	, ' ').as_slice()).as_slice());
+			&string_with_repeat(' ', (area.right - area.left) as usize));
 		rb.print(area.left as usize, area.top as usize, RB_BOLD, Color::White, Color::Blue,
-			format!("{}{}", self.prefix,
-				String::from_utf8(self.data.clone()).unwrap_or("".to_string()).as_slice()).as_slice());
+			&format!("{}{}", self.prefix, String::from_utf8(self.data.clone()).unwrap()));
 		if has_focus {
 			rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));
 		}
@@ -230,7 +232,7 @@ impl InputLine for GotoInputLine {
 		};
 
 		let pos : Option<isize> = match String::from_utf8(self.base.data.clone()) {
-			Ok(gs) => isize::from_str_radix(gs.as_slice(), radix),
+			Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
 			Err(_) => None
 		};
 
@@ -306,13 +308,13 @@ impl InputLine for FindInputLine {
 		};
 
 		// Hack since I can't figure out lifetimes...
-		let jj = self.base.data.clone();
-		let ll = String::from_utf8(jj).unwrap_or("QWERTY".to_string()).as_slice().from_hex();
+		// let jj = self.base.data.clone();
+		let ll = String::from_utf8(self.base.data.clone()).unwrap().from_hex();
 
 
 		let needle :&[u8] = match self.data_type {
-			DataType::AsciiStr => self.base.data.as_slice(),
-			DataType::UnicodeStr => self.base.data.as_slice(),
+			DataType::AsciiStr => &self.base.data,
+			DataType::UnicodeStr => &self.base.data,
 			DataType::HexStr => {
 				match ll {
 					Ok(ref n) => n.as_slice(),
@@ -375,15 +377,16 @@ impl InputLine for PathInputLine {
 		};
 
 		if self.do_save {
-			h.save(&Path::new(self.base.data.as_slice()));
+			h.save(&Path::new(&String::from_utf8(self.base.data).unwrap()));
 		} else {
-			h.open(&Path::new(self.base.data.as_slice()));
+			h.open(&Path::new(&String::from_utf8(self.base.data).unwrap()));
 		}
 
 		return true;
 	}
 }
 
+#[derive(Debug)]
 enum UndoAction {
 	Delete(isize, isize),
 	Insert(isize, Vec<u8>),
@@ -407,7 +410,7 @@ pub struct HexEdit{
 	undo_stack : Vec<UndoAction>,
 	input_entry : Option<Box<InputLine>>,
 	overlay : Option<OverlayText>,
-	cur_path : Option<Box<Path>>,
+	cur_path : Option<PathBuf>,
 	clipboard : Option<Vec<u8>>,
 }
 
@@ -447,7 +450,7 @@ impl HexEdit{
 
 		let mut prev_in_selection = false;
 
-		let extra_none : &[Option<&u8>] = [None];
+		let extra_none : &[Option<&u8>] = &[None];
 
 		let start_iter = (self.data_offset/2) as usize;
 		let stop_iter = cmp::min(start_iter + (self.nibble_size/2) as usize, self.buffer.len());
@@ -465,10 +468,10 @@ impl HexEdit{
 			if offset == 0 {
 				if self.nibble_start == 5 {
 					rb.print(0, row as usize, RB_NORMAL, Color::White, Color::Black,
-						format!("{:04X}", byte_pos).as_slice());
+						&format!("{:04X}", byte_pos));
 				} else {
 					rb.print(0, row as usize, RB_NORMAL, Color::White, Color::Black,
-						format!("{:04X}:{:04X}", byte_pos>>16, byte_pos&0xFFFF).as_slice());
+						&format!("{:04X}:{:04X}", byte_pos>>16, byte_pos&0xFFFF));
 				}
 			}
 
@@ -477,21 +480,17 @@ impl HexEdit{
 			match maybe_byte {
 				Some(&byte) => {
 					let (char_0, char_1) = u8_to_hex(byte);
-					s.push_char(char_0);
-					s.push_char(char_1);
-					match (byte as u8).to_ascii_opt() {
-						Some(ascii_char) => if ascii_char.is_alphanumeric() {
-							byte_str = String::from_byte(byte)
-						},
-						_ => {
-							byte_str = ".".to_string();
-						}
+					s.push(char_0);
+					s.push(char_1);
+					let alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".find(byte as char).is_some();
+					if alphanumeric {
+						byte_str = String::from_utf8(vec!(byte)).unwrap()
 					}
 				}
 
 				// Then this is the last iteration so that insertion past the last byte works
 				None => {
-					s.push_char(' ');
+					s.push(' ');
 					byte_str = " ".to_string();
 				}
 			}
@@ -517,7 +516,7 @@ impl HexEdit{
 			};
 
 			rb.print(nibble_view_pos[0], nibble_view_pos[1] as usize,
-				RB_NORMAL, nibble_colors[0], nibble_colors[1], s.as_slice());
+				RB_NORMAL, nibble_colors[0], nibble_colors[1], &s);
 			if prev_in_selection && in_selection {
 				rb.print(nibble_view_pos[0]-1, nibble_view_pos[1] as usize,
 					RB_NORMAL, nibble_colors[0], nibble_colors[1], " ");
@@ -537,7 +536,7 @@ impl HexEdit{
 			};
 
 			rb.print((byte_view_start + offset) as usize, row as usize,
-				RB_NORMAL, byte_colors[0], byte_colors[1], byte_str.as_slice());
+				RB_NORMAL, byte_colors[0], byte_colors[1], &byte_str);
 			if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
 				rb.set_cursor(byte_view_start + offset, row);
 			}
@@ -562,18 +561,15 @@ impl HexEdit{
 			None => ()
 		};
 
-		rb.print(0, rb.height()-1, RB_NORMAL, Color::Black, Color::White,
-		 	String::from_chars(vec::Vec::from_elem(rb.width(), ' ').as_slice()).as_slice());
+		rb.print(0, rb.height()-1, RB_NORMAL, Color::Black, Color::White, &string_with_repeat(' ', rb.width()));
 		match self.status_log.last() {
-			Some(ref status_line) => rb.print(0, rb.height()-1, RB_NORMAL, Color::Black, Color::White,
-				 	status_line.as_slice()),
+			Some(ref status_line) => rb.print(0, rb.height()-1, RB_NORMAL, Color::Black, Color::White, &status_line),
 			None => (),
 		}
 		let right_status = format!("overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}", self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(), self.cursor_pos, self.selection_start, self.insert_mode);
 		// let lll = self.buffer.segment._internal_debug();
 		// let right_status = format!("clip = {}, vecs = {}", self.clipboard.is_some(), lll);
-		rb.print(rb.width()-right_status.len(), rb.height()-1, RB_NORMAL, Color::Black, Color::White,
-		 	right_status.as_slice());	
+		rb.print(rb.width()-right_status.len(), rb.height()-1, RB_NORMAL, Color::Black, Color::White, &right_status);
 
 	}
 
@@ -585,11 +581,11 @@ impl HexEdit{
 		match buffer::Buffer::from_path(path) {
 			Ok(buf) => {
 				self.buffer = buf;
-				self.cur_path = Some(Box::new(path.clone()));
+				self.cur_path = Some(PathBuf::from(path));
 				self.reset();
 			}
 			Err(e) => {
-				self.status(format!("ERROR: {}", e.desc));
+				self.status(format!("ERROR: {}", e.description()));
 			}
 		}
 	}
@@ -597,10 +593,10 @@ impl HexEdit{
 	pub fn save(&mut self, path: &Path) {
 		match self.buffer.save(path) {
 			Ok(_) => {
-				self.cur_path = Some(Box::new(path.clone()));
+				self.cur_path = Some(PathBuf::from(path));
 			}
 			Err(e) => {
-				self.status(format!("ERROR: {}", e.desc));
+				self.status(format!("ERROR: {}", e.description()));
 			}
 		}
 	}
@@ -857,7 +853,7 @@ impl HexEdit{
 	}
 
 	fn view_input(&mut self, emod: u8, key: u16, ch: u32) {
-		let ascii_ch = (ch as u8).to_ascii();
+        let printable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".find((ch as u8 ) as char).is_some();
 		match (emod, key, ch) {
 			// Movement
 			(0, 0xFFEB, _) if self.nibble_active => self.move_cursor(-1),
@@ -883,8 +879,8 @@ impl HexEdit{
  			(0, 0, 48...57)  if self.nibble_active => { self.write_nibble_at_cursor((ch-48) as u8) ; self.move_cursor(1) }
  			(0, 0, 97...102) if self.nibble_active => { self.write_nibble_at_cursor((ch-97 + 10) as u8) ; self.move_cursor(1) }
 			(0, 0, 65...70)  if self.nibble_active => { self.write_nibble_at_cursor((ch-65 + 10) as u8) ; self.move_cursor(1) }
-			(0, 0, _) if !self.nibble_active && ascii_ch.is_print() => {
-				self.write_byte_at_cursor(ascii_ch.to_byte()); self.move_cursor(2);
+			(0, 0, _) if !self.nibble_active && printable => {
+				self.write_byte_at_cursor(ch as u8); self.move_cursor(2);
 			},
 
 			(0, 9, 0) => {
@@ -904,13 +900,13 @@ impl HexEdit{
 
 			(0, 26, 0) => self.undo(),
 
-			(0, 7, 0) => self.input_entry = Some(Box::new(GotoInputLine::new() as Box<InputLine>)),
-			(0, 6, 0) => self.input_entry = Some(Box::new(FindInputLine::new() as Box<InputLine>)),
-			(0, 5, 0) => self.input_entry = Some(Box::new(PathInputLine::new_open() as Box<InputLine>)),
-			(0, 23, 0) => self.input_entry = Some(Box::new(PathInputLine::new_save() as Box<InputLine>)),
+			(0, 7, 0) => self.input_entry = Some(Box::new(GotoInputLine::new()) as Box<InputLine>),
+			(0, 6, 0) => self.input_entry = Some(Box::new(FindInputLine::new()) as Box<InputLine>),
+			(0, 5, 0) => self.input_entry = Some(Box::new(PathInputLine::new_open()) as Box<InputLine>),
+			(0, 23, 0) => self.input_entry = Some(Box::new(PathInputLine::new_save()) as Box<InputLine>),
 
-			_ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?} ascii = {:?}",
-		 				emod, key, ch, ascii_ch)),
+			_ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?}",
+		 				emod, key, ch)),
 		}
 	}
 
@@ -924,7 +920,7 @@ impl HexEdit{
 	// }
 
 	// fn overlay_action(&mut self) {
-	// 	let mut overlay = self.overlay.take_unwrap();
+	// 	let mut overlay = self.overlay.    wrap();
 
 	// }
 
@@ -963,7 +959,7 @@ impl HexEdit{
 			self.view_input(emod, key, ch);
 		} else {
 			if !self.overlay.is_none() {
-				let mut overlay = self.overlay.take_unwrap();
+				let mut overlay = self.overlay.unwrap();
 				done_input = overlay.input(emod, key, ch);
 				if !overlay.do_action(self) {
 					self.overlay = Some(overlay);
@@ -972,7 +968,7 @@ impl HexEdit{
 				}
 			}
 			if !self.input_entry.is_none() {
-				let mut entry = self.input_entry.take_unwrap();
+				let mut entry = self.input_entry.unwrap();
 				if !done_input {
 					entry.input(emod, key, ch);
 				}

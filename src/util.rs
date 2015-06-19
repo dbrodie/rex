@@ -1,4 +1,4 @@
-use std::iter::Iterator;
+use std::iter::{Iterator, repeat};
 
 pub fn slice_set<T:Clone>(dest: &mut [T], src: &[T]) {
 	if dest.len() != src.len() {
@@ -10,13 +10,14 @@ pub fn slice_set<T:Clone>(dest: &mut [T], src: &[T]) {
 	}
 }
 
-pub fn iter_set<'a, 'b, T: Clone, A: Iterator<Item=&'a T>, B: Iterator<Item=&'b mut T>>(dest: B, src: A) {
-	// TODO: Fail (how?) when they are not the same length?
+// pub fn iter_set<'a, T: Clone, A: Iterator<Item=&'a T>, B: Iterator<Item=&'a mut T>>(dest: B, src: A)
+// {
+// 	// TODO: Fail (how?) when they are not the same length?
 
-	for (s, d) in src.zip(dest) {
-		*d = s.clone();
-	}
-}
+// 	for (s, d) in src.zip(dest) {
+// 		*d = s.clone();
+// 	}
+// }
 
 pub fn iter_equals<A: Eq, T: Iterator<Item=A>, U: Iterator<Item=A>>(mut a: T, mut b: U) -> bool {
     loop {
@@ -26,4 +27,9 @@ pub fn iter_equals<A: Eq, T: Iterator<Item=A>, U: Iterator<Item=A>>(mut a: T, mu
             (Some(x), Some(y)) => if x != y { return false },
         }
     }
+}
+
+pub fn string_with_repeat(c: char, n: usize) -> String {
+	let v: Vec<_> = repeat(c as u8).take(n).collect();
+	String::from_utf8(v).unwrap()
 }
