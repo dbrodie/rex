@@ -9,6 +9,7 @@ pub struct Segment {
 	length : usize,
 }
 
+#[derive(Copy, Clone)]
 struct Index {
 	outer : usize,
 	inner : usize,

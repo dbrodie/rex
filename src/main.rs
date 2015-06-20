@@ -15,7 +15,7 @@ mod segment;
 
 
 fn main() {
-    let args = args();
+    let mut args = args();
     let mut edit = ui::HexEdit::new();
 
     if args.len() > 1 {
