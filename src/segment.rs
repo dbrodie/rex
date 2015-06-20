@@ -70,7 +70,10 @@ impl Segment {
 	}
 
 	fn calc_len(&mut self) {
-		self.length = self.vecs.iter().map(|v| v.len()).sum();
+		self.length = 0;
+		for len in self.vecs.iter().map(|v| v.len()) {
+			self.length += len
+		}
 	}
 
 	fn pos_to_index(&self, pos: usize, for_insert: bool) -> Index {
@@ -316,8 +319,10 @@ impl<'a> Iterator for MutItems<'a> {
 
 		let r = self.seg.vecs.get(idx.outer).unwrap().get(idx.inner).unwrap();
 		unsafe {
-			Some(mem::transmute(r))
+			// Some(&mut r)
+			None
 		}
+		// Some(&mut r)
 	}
 }
 

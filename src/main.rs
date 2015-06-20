@@ -1,5 +1,5 @@
 extern crate rustbox;
-extern crate serialize;
+extern crate rustc_serialize;
 
 use std::os;
 use std::env::args;

@@ -2,7 +2,7 @@ use std::str;
 use std::vec;
 use std::iter;
 use std::cmp;
-use serialize::hex::FromHex;
+use rustc_serialize::hex::FromHex;
 use std::char;
 use std::path::Path;
 use std::path::PathBuf;
@@ -316,7 +316,7 @@ impl InputLine for FindInputLine {
 			DataType::UnicodeStr => &self.base.data,
 			DataType::HexStr => {
 				match ll {
-					Ok(ref n) => n.as_slice(),
+					Ok(ref n) => &n,
 					Err(_) => {
 						h.status(format!("Bad hex value"));
 						return true;
@@ -610,7 +610,7 @@ impl HexEdit{
 				begin_region = offset;
 				end_region = offset + buf.len() as isize;
 
-				self.buffer.insert(offset as usize, buf.as_slice());
+				self.buffer.insert(offset as usize, &buf);
 				if add_to_undo { self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize)) }
 				self.recalculate(); 
 			}
@@ -627,7 +627,7 @@ impl HexEdit{
 				end_region = offset + buf.len() as isize;
 
 				let orig_data = self.buffer.read(offset as usize, buf.len());
-				self.buffer.write(offset as usize, buf.as_slice());
+				self.buffer.write(offset as usize, &buf);
 				if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
 			}
 		}
@@ -957,8 +957,21 @@ impl HexEdit{
 		if self.input_entry.is_none() && self.overlay.is_none() {
 			self.view_input(emod, key, ch);
 		} else {
-			if !self.overlay.is_none() {
-				let mut overlay = self.overlay.unwrap();
+            // let clean_overlay = match self.overlay {
+            //     Some(ref mut overlay) => {
+            //         overlay.input(emod, key, ch);
+            //         done_input = true;
+            //         overlay.do_action(self)
+            //     }
+            //     None => true,
+            // };
+            // if clean_overlay {
+            //     self.overlay = None;
+            // }
+            let mut some_overlay = self.overlay.take();
+			if !some_overlay.is_none() {
+                let mut overlay = some_overlay.unwrap();
+				// let mut overlay = self.overlay.as_mut().unwrap();
 				done_input = overlay.input(emod, key, ch);
 				if !overlay.do_action(self) {
 					self.overlay = Some(overlay);
@@ -966,8 +979,18 @@ impl HexEdit{
 					self.overlay = None;
 				}
 			}
-			if !self.input_entry.is_none() {
-				let mut entry = self.input_entry.unwrap();
+            
+
+            // let clean_entry = match self.input_entry {
+            //     Some(mut ref entry) => {
+            //         entry.do_action(self)
+            //     }
+            //     None => true,
+            // }
+
+            let mut some_input = self.input_entry.take();
+			if !some_input.is_none() {
+				let mut entry = some_input.unwrap();
 				if !done_input {
 					entry.input(emod, key, ch);
 				}
