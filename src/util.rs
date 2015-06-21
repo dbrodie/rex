@@ -1,8 +1,9 @@
 use std::iter::{Iterator, repeat};
 
-pub fn slice_set<T:Clone>(dest: &mut [T], src: &[T]) {
+pub fn slice_set<T: Clone>(dest: &mut [T], src: &[T]) {
     if dest.len() != src.len() {
-        panic!("destination and source slices should be the same length! ({} != {})", dest.len(), src.len());
+        panic!("destination and source slices should be the same length! ({} != {})", dest.len(),
+               src.len());
     }
 
     for (i, v) in src.iter().enumerate() {
@@ -19,7 +20,9 @@ pub fn slice_set<T:Clone>(dest: &mut [T], src: &[T]) {
 //  }
 // }
 
-pub fn iter_equals<A: Eq, T: Iterator<Item=A>, U: Iterator<Item=A>>(mut a: T, mut b: U) -> bool {
+pub fn iter_equals<A: Eq, T: Iterator<Item = A>, U: Iterator<Item = A>>(mut a: T,
+                                                                        mut b: U)
+                                                                        -> bool {
     loop {
         match (a.next(), b.next()) {
             (None, None) => return true,

@@ -7,12 +7,10 @@ use std::path::Path;
 use rustbox::{RustBox, Event};
 use std::default::Default;
 
-
 mod ui;
 mod buffer;
 mod util;
 mod segment;
-
 
 fn main() {
     let mut args = args();
@@ -45,7 +43,6 @@ fn main() {
     drop(rb);
 }
 
-
 // fn test_main() {
 //     let mut s = Segment::from_slice(&[1,2,3,4]);
 //     println!("Segment {}", s);
@@ -59,7 +56,6 @@ fn main() {
 //     println!("Slice {}", s.move_out_slice(0, 7));
 //     // println!("Slice {}", );
 //     println!("Segment {}", s);
-
 
 //     println!("Slice {}", s.move_out_slice(0, 6));
 //     // println!("Slice {}", );

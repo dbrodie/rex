@@ -5,40 +5,40 @@ use std::fmt;
 use super::util;
 
 pub struct Segment {
-    vecs : Vec<Vec<u8>>,
-    length : usize,
+    vecs: Vec<Vec<u8>>,
+    length: usize,
 }
 
 #[derive(Copy, Clone)]
 struct Index {
-    outer : usize,
-    inner : usize,
+    outer: usize,
+    inner: usize,
 }
 
 struct Indexes<'a> {
-    seg : &'a Segment,
-    index : Index,
+    seg: &'a Segment,
+    index: Index,
 }
 
 pub struct Items<'a> {
-    seg : &'a Segment,
-    index : Index,
-    num_elem : Option<usize>,
+    seg: &'a Segment,
+    index: Index,
+    num_elem: Option<usize>,
 }
 
 pub struct MutItems<'a> {
-    seg : &'a mut Segment,
-    index : Index,
-    num_elem : Option<usize>,
+    seg: &'a mut Segment,
+    index: Index,
+    num_elem: Option<usize>,
 }
 
 pub struct Slices<'a> {
-    seg : &'a Segment,
-    outer : usize,
+    seg: &'a Segment,
+    outer: usize,
 }
 
-static min_block_size : usize = 1024*1024;
-static max_block_size : usize = 4*1024*1024;
+static min_block_size: usize = 1024 * 1024;
+static max_block_size: usize = 4 * 1024 * 1024;
 
 impl Segment {
     pub fn _internal_debug(&self) -> Vec<usize> {
@@ -46,22 +46,22 @@ impl Segment {
     }
     pub fn new() -> Segment {
         Segment {
-            vecs : Vec::new(),
-            length : 0,
+            vecs: Vec::new(),
+            length: 0,
         }
     }
     pub fn from_vec(values: Vec<u8>) -> Segment {
         let len = values.len();
         Segment {
-            vecs : vec!(values),
-            length : len,
+            vecs: vec!(values),
+            length: len,
         }
     }
 
     pub fn from_slice(values: &[u8]) -> Segment {
         Segment {
-            vecs : vec!(values.into()),
-            length : values.len(),
+            vecs: vec!(values.into()),
+            length: values.len(),
         }
     }
 
@@ -83,8 +83,7 @@ impl Segment {
 
         let mut cur_pos = pos;
         for (i, vec) in self.vecs.iter().enumerate() {
-            if cur_pos < vec.len() || 
-                    (for_insert && cur_pos == vec.len()) {
+            if cur_pos < vec.len() || (for_insert && cur_pos == vec.len()) {
                 return Index {
                     outer: i,
                     inner: cur_pos,
@@ -113,9 +112,9 @@ impl Segment {
 
         let idx = self.pos_to_index(from, false);
         Items {
-            seg : self,
-            index : idx,
-            num_elem : Some(to - from),
+            seg: self,
+            index: idx,
+            num_elem: Some(to - from),
         }
     }
 
@@ -126,9 +125,9 @@ impl Segment {
 
         let idx = self.pos_to_index(from, false);
         MutItems {
-            seg : self,
-            index : idx,
-            num_elem : Some(to - from),
+            seg: self,
+            index: idx,
+            num_elem: Some(to - from),
         }
     }
 
@@ -160,15 +159,15 @@ impl Segment {
         let page_start_idx = (index.inner / min_block_size) * min_block_size;
         if page_start_idx == 0 {
             if self.vecs[index.outer].len() > max_block_size {
-                let insert_vec: Vec<_>= self.vecs[index.outer][min_block_size..].into() ;
-                self.vecs.insert(index.outer+1, insert_vec);
-                self.vecs[index.outer].truncate(min_block_size);
+                let insert_vec: Vec < _ >= self.vecs[index.outer][min_block_size..].into(); self
+                                           .vecs.insert(index.outer + 1, insert_vec); self
+                                           .vecs[index.outer].truncate(min_block_size);
             }
-            
+
             return index;
         } else {
             let insert_vec: Vec<_> = self.vecs[index.outer][page_start_idx..].into();
-            self.vecs.insert(index.outer+1, insert_vec);
+            self.vecs.insert(index.outer + 1, insert_vec);
             self.vecs[index.outer].truncate(page_start_idx);
             return self.prepare_insert(Index {
                 outer: index.outer + 1,
@@ -178,7 +177,7 @@ impl Segment {
     }
 
     pub fn insert_val(&mut self, offset: usize, value: u8) {
-        self.insert_slice(offset, &[value]);        
+        self.insert_slice(offset, &[value]);
     }
 
     pub fn insert_slice(&mut self, offset: usize, values: &[u8]) {
@@ -263,51 +262,48 @@ impl<'a> Iterator for Indexes<'a> {
 }
 
 impl<'a> Iterator for Items<'a> {
-    type Item=&'a u8;
+    type Item = &'a u8;
     fn next(&mut self) -> Option<&'a u8> {
-         if self.index.outer >= self.seg.vecs.len() {
+        if self.index.outer >= self.seg.vecs.len() {
             return None;
         }
-        
+
         let elem = {
             let vv = &self.seg.vecs[self.index.outer];
             &vv[self.index.inner]
-            };
-    
+        };
+
         self.index.inner += 1;
         if self.index.inner >= self.seg.vecs[self.index.outer].len() {
             self.index.inner = 0;
             self.index.outer += 1;
         }
-        
-        
+
         Some(elem)
     }
 }
 
-    impl<'a> Iterator for MutItems<'a> {
-        type Item=&'a mut u8;
-        fn next(&mut self) -> Option<&'a mut u8> {
-             if self.index.outer >= self.seg.vecs.len() {
-                return None;
-            }
-            
-            let elem_raw: *mut u8 = {
-                let vv = &mut self.seg.vecs[self.index.outer];
-                &mut vv[self.index.inner]
-                };
-        
-            self.index.inner += 1;
-            if self.index.inner >= self.seg.vecs[self.index.outer].len() {
-                self.index.inner = 0;
-                self.index.outer += 1;
-            }
-            
-            
-            Some(unsafe { &mut *elem_raw })
+impl<'a> Iterator for MutItems<'a> {
+    type Item = &'a mut u8;
+    fn next(&mut self) -> Option<&'a mut u8> {
+        if self.index.outer >= self.seg.vecs.len() {
+            return None;
         }
-    }
 
+        let elem_raw: *mut u8 = {
+            let vv = &mut self.seg.vecs[self.index.outer];
+            &mut vv[self.index.inner]
+        };
+
+        self.index.inner += 1;
+        if self.index.inner >= self.seg.vecs[self.index.outer].len() {
+            self.index.inner = 0;
+            self.index.outer += 1;
+        }
+
+        Some(unsafe { &mut *elem_raw })
+    }
+}
 
 impl<'a> Iterator for Slices<'a> {
     type Item = &'a [u8];
@@ -319,12 +315,11 @@ impl<'a> Iterator for Slices<'a> {
             self.outer += 1;
             Some(&self.seg.vecs[i])
         }
-
     }
 }
 
 #[test]
 fn test_segment() {
-    let mut s = Segment::from_slice(&[1,2,3,4]);
-    s.insert_slice(0, &[7,7,7,7,7]);
+    let mut s = Segment::from_slice(&[1, 2, 3, 4]);
+    s.insert_slice(0, &[7, 7, 7, 7, 7]);
 }
