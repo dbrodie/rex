@@ -30,18 +30,18 @@ fn main() {
     rb.present();
     // tb::set_cursor(2, 0);
     loop {
-    	let event = rb.poll_event(true).unwrap();
-    	// println!("{:?}", event);
-	    match event {
-	    	Event::KeyEventRaw(0, 0, 0) => break,
-	    	Event::KeyEventRaw(m, k, c) => edit.input(m, k, c),
-	    	Event::ResizeEvent(w, h) => { edit.resize(w, h) }
-	    	_ => ()
-	    };
-	    rb.clear();
-	    edit.draw(&rb);
-	    rb.present();
-	}
+        let event = rb.poll_event(true).unwrap();
+        // println!("{:?}", event);
+        match event {
+            Event::KeyEventRaw(0, 0, 0) => break,
+            Event::KeyEventRaw(m, k, c) => edit.input(m, k, c),
+            Event::ResizeEvent(w, h) => { edit.resize(w, h) }
+            _ => ()
+        };
+        rb.clear();
+        edit.draw(&rb);
+        rb.present();
+    }
     drop(rb);
 }
 
