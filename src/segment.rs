@@ -98,12 +98,12 @@ impl Segment {
 
 	pub fn get<'a>(&'a self, pos: usize) -> &'a u8 {
 		let idx = self.pos_to_index(pos, false);
-		self.vecs.get(idx.outer).unwrap().get(idx.inner).unwrap()
+		&self.vecs[idx.outer][idx.inner]
 	}
 
 	pub fn get_mut<'a>(&'a mut self, pos: usize) -> &'a mut u8 {
 		let idx = self.pos_to_index(pos, false);
-		self.vecs.get_mut(idx.outer).unwrap().get_mut(idx.inner).unwrap()
+		&mut self.vecs[idx.outer][idx.inner]
 	}
 
 	pub fn iter_range<'a>(&'a self, from: usize, to: usize) -> Items<'a> {
@@ -153,23 +153,23 @@ impl Segment {
 			self.vecs.push(Vec::new());
 		}
 
-		if self.vecs.get(index.outer).unwrap().len() < max_block_size {
+		if self.vecs[index.outer].len() < max_block_size {
 			return index;
 		}
 
 		let page_start_idx = (index.inner / min_block_size) * min_block_size;
 		if page_start_idx == 0 {
-			if self.vecs.get(index.outer).unwrap().len() > max_block_size {
-				let insert_vec: Vec<_>= self.vecs.get(index.outer).unwrap()[min_block_size..].into()	;
+			if self.vecs[index.outer].len() > max_block_size {
+				let insert_vec: Vec<_>= self.vecs[index.outer][min_block_size..].into()	;
 				self.vecs.insert(index.outer+1, insert_vec);
-				self.vecs.get_mut(index.outer).unwrap().truncate(min_block_size);
+				self.vecs[index.outer].truncate(min_block_size);
 			}
 			
 			return index;
 		} else {
-			let insert_vec: Vec<_> = self.vecs.get(index.outer).unwrap()[page_start_idx..].into();
+			let insert_vec: Vec<_> = self.vecs[index.outer][page_start_idx..].into();
 			self.vecs.insert(index.outer+1, insert_vec);
-			self.vecs.get_mut(index.outer).unwrap().truncate(page_start_idx);
+			self.vecs[index.outer].truncate(page_start_idx);
 			return self.prepare_insert(Index {
 				outer: index.outer + 1,
 				inner: index.inner - page_start_idx
@@ -187,11 +187,9 @@ impl Segment {
 
 		// This is needed for the mut borrow vec
 		{
-			let vec = self.vecs.get_mut(index.outer).unwrap();
+			let vec = &mut self.vecs[index.outer];
 			// TODO: There has to be a better way for this range
 			for val in values.into_iter().rev() {
-			// for i in iter::range_step((values.len()) as isize, 0, -1) {
-				// vec.insert(index.inner, values[(i-1) as usize]);
 				vec.insert(index.inner, *val);
 			}
 		}
@@ -206,11 +204,11 @@ impl Segment {
 		let num_elem = end_offset - start_offset;
 
 		for _ in 0..num_elem {
-			let c = self.vecs.get_mut(index.outer).unwrap().remove(index.inner);
+			let c = self.vecs[index.outer].remove(index.inner);
 			res.push(c);
 
-			if index.inner >= self.vecs.get(index.outer).unwrap().len() {
-				if self.vecs.get(index.outer).unwrap().len() == 0 {
+			if index.inner >= self.vecs[index.outer].len() {
+				if self.vecs[index.outer].len() == 0 {
 					self.vecs.remove(index.outer);
 				} else {
 					index.inner = 0;
@@ -256,7 +254,7 @@ impl<'a> Iterator for Indexes<'a> {
 		let res = self.index;
 
 		self.index.inner += 1;
-		if self.index.inner >= self.seg.vecs.get(self.index.outer).unwrap().len() {
+		if self.index.inner >= self.seg.vecs[self.index.outer].len() {
 			self.index.inner = 0;
 			self.index.outer += 1;
 		}
@@ -319,7 +317,7 @@ impl<'a> Iterator for Slices<'a> {
 		} else {
 			let i = self.outer;
 			self.outer += 1;
-			Some(&self.seg.vecs.get(i).unwrap())
+			Some(&self.seg.vecs[i])
 		}
 
 	}

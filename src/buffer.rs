@@ -53,7 +53,7 @@ impl Buffer {
 		self.segment.iter_range(offset, offset+len).map(|x| *x).collect::<Vec<u8>>()
 	}
 
-	pub fn get_byte(&self, offset: usize) -> u8{
+	pub fn get_byte(&self, offset: usize) -> u8 {
 		*self.segment.get(offset)
 	}
 
