@@ -267,62 +267,46 @@ impl<'a> Iterator for Indexes<'a> {
 impl<'a> Iterator for Items<'a> {
 	type Item=&'a u8;
 	fn next(&mut self) -> Option<&'a u8> {
-		let idx = self.index;
-
-		match self.num_elem {
-			Some(n) => {
-				if n == 0 {
-					return None;
-				}
-				self.num_elem = Some(n-1);
-			}
-			None => {
-				if idx.outer > self.seg.vecs.len() {
-					return None;
-				}
-			}
-		}
-
-		self.index.inner += 1;
-		if self.index.inner >= self.seg.vecs.get(self.index.outer).unwrap().len() {
-			self.index.inner = 0;
-			self.index.outer += 1;
-		}
-		Some(self.seg.vecs.get(idx.outer).unwrap().get(idx.inner).unwrap())
+		 if self.index.outer >= self.seg.vecs.len() {
+            return None;
+        }
+        
+        let elem = {
+            let vv = &self.seg.vecs[self.index.outer];
+            &vv[self.index.inner]
+            };
+    
+        self.index.inner += 1;
+        if self.index.inner >= self.seg.vecs[self.index.outer].len() {
+            self.index.inner = 0;
+            self.index.outer += 1;
+        }
+        
+        
+        Some(elem)
 	}
 }
 
 impl<'a> Iterator for MutItems<'a> {
 	type Item=&'a mut u8;
 	fn next(&mut self) -> Option<&'a mut u8> {
-		let idx = self.index;
-
-		match self.num_elem {
-			Some(n) => {
-				if n == 0 {
-					return None;
-				}
-				self.num_elem = Some(n-1);
-			}
-			None => {
-				if idx.outer > self.seg.vecs.len() {
-					return None;
-				}
-			}
-		}
-
-		self.index.inner += 1;
-		if self.index.inner >= self.seg.vecs.get(self.index.outer).unwrap().len() {
-			self.index.inner = 0;
-			self.index.outer += 1;
-		}
-
-		let r = self.seg.vecs.get(idx.outer).unwrap().get(idx.inner).unwrap();
-		unsafe {
-			// Some(&mut r)
-			None
-		}
-		// Some(&mut r)
+		 if self.index.outer >= self.seg.vecs.len() {
+            return None;
+        }
+        
+        let elem_raw: *mut u8 = {
+            let vv = &mut self.seg.vecs[self.index.outer];
+            &mut vv[self.index.inner]
+            };
+    
+        self.index.inner += 1;
+        if self.index.inner >= self.seg.vecs[self.index.outer].len() {
+            self.index.inner = 0;
+            self.index.outer += 1;
+        }
+        
+        
+        Some(unsafe { &mut *elem_raw })
 	}
 }
 
