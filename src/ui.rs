@@ -987,69 +987,15 @@ impl HexEdit {
         }
     }
 
-    // fn input_action(&mut self) {
-    // 	let mut entry = self.input_entry.take_unwrap();
-    // 	if !entry.do_action(self) {
-    // 		self.input_entry = Some(entry);					
-    // 	} else {
-    // 		self.input_entry = None;
-    // 	}		
-    // }
-
-    // fn overlay_action(&mut self) {
-    // 	let mut overlay = self.overlay.    wrap();
-
-    // }
-
     pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
-        // let mut overlay = self.overlay.take();
-        // let overlay_inputed = overlay.as_mut().and_then( |olay| Some(olay.input(emod, key, ch)) ).unwrap_or(false);
-        // self.overlay = self.overlay.move_iter().map( |olay| 
-        // 	// Some(olay) => 
-        // 		if olay.do_action(self) {
-        // 			Some(olay)
-        // 		} else {
-        // 			None
-        // 		}).first();
-        // None => None
-        // };
-        // .as_mut().filtered(|olay| !olay.do_action(self)).map(|x| *x);
-
-        // match (self.input_entry, self.overlay) {
-        // 	(None, None) => {
-        // 		self.view_input(emod, key, ch);
-        // 	}
-        // 	(Some(input_entry), None) => {
-        // 		input_entry.input(emod, key, ch);
-        // 		self.input_action();
-        // 	},
-        // 	(None, Some(overlay)) => {
-        // 		overlay.input(emod, key,ch);
-        // 	}
-
-        // 	(Some(input_entry), Some(overlay)) => {
-
-        // 	}
-        // }
         let mut done_input = false;
         if self.input_entry.is_none() && self.overlay.is_none() {
             self.view_input(emod, key, ch);
         } else {
-            // let clean_overlay = match self.overlay {
-            //     Some(ref mut overlay) => {
-            //         overlay.input(emod, key, ch);
-            //         done_input = true;
-            //         overlay.do_action(self)
-            //     }
-            //     None => true,
-            // };
-            // if clean_overlay {
-            //     self.overlay = None;
-            // }
             let mut some_overlay = self.overlay.take();
+
             if !some_overlay.is_none() {
                 let mut overlay = some_overlay.unwrap();
-                // let mut overlay = self.overlay.as_mut().unwrap();
                 done_input = overlay.input(emod, key, ch);
                 if !overlay.do_action(self) {
                     self.overlay = Some(overlay);
@@ -1057,13 +1003,6 @@ impl HexEdit {
                     self.overlay = None;
                 }
             }
-
-            // let clean_entry = match self.input_entry {
-            //     Some(mut ref entry) => {
-            //         entry.do_action(self)
-            //     }
-            //     None => true,
-            // }
 
             let mut some_input = self.input_entry.take();
             if !some_input.is_none() {
