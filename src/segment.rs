@@ -175,12 +175,8 @@ impl Segment {
             })
         }
     }
-
-    pub fn insert_val(&mut self, offset: usize, value: u8) {
-        self.insert_slice(offset, &[value]);
-    }
-
-    pub fn insert_slice(&mut self, offset: usize, values: &[u8]) {
+    
+    pub fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
 

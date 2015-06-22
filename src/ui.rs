@@ -10,7 +10,9 @@ use std;
 use util::string_with_repeat;
 use std::error::Error;
 
-use super::buffer;
+
+use super::buffer::Buffer;
+use super::segment::Segment;
 
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
@@ -431,7 +433,7 @@ enum UndoAction {
 }
 
 pub struct HexEdit {
-    buffer: buffer::Buffer,
+    buffer: Segment,
     cursor_pos: isize,
     cur_height: isize,
     cur_width: isize,
@@ -454,7 +456,7 @@ pub struct HexEdit {
 impl HexEdit {
     pub fn new() -> HexEdit {
         HexEdit {
-            buffer: buffer::Buffer::new(),
+            buffer: Segment::new(),
             cursor_pos: 0,
             nibble_size: 0,
             cur_width: 50,
@@ -631,7 +633,7 @@ impl HexEdit {
     }
 
     pub fn open(&mut self, path: &Path) {
-        match buffer::Buffer::from_path(path) {
+        match Segment::from_path(path) {
             Ok(buf) => {
                 self.buffer = buf;
                 self.cur_path = Some(PathBuf::from(path));
@@ -760,7 +762,7 @@ impl HexEdit {
     }
 
     fn set_nibble_at_cursor(&mut self, c: u8) {
-        let mut byte = self.buffer.get_byte((self.cursor_pos / 2) as usize);
+        let mut byte = *self.buffer.get((self.cursor_pos / 2) as usize);
 
         byte = match self.cursor_pos & 1 {
             0 => (byte & 0x0f) + c * 16,
