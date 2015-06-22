@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use std;
 use util::string_with_repeat;
 use std::error::Error;
+use std::sync::mpsc::{Receiver, Sender};
+use std::rc::Rc;
 
 
 use super::buffer::Buffer;
@@ -182,7 +184,8 @@ enum RadixType {
 struct GotoInputLine {
     base: BaseInputLine,
     radix: RadixType,
-    done_state: Option<bool>
+    done_state: Option<bool>,
+    on_done: Option<Box<FnMut>>,
 }
 
 impl GotoInputLine {
@@ -191,6 +194,7 @@ impl GotoInputLine {
             base: BaseInputLine::new("Goto (Dec):".to_string()),
             radix: RadixType::DecRadix,
             done_state: None,
+            on_done: None,
         }
     }
 
@@ -201,6 +205,17 @@ impl GotoInputLine {
             RadixType::HexRadix => "Goto (Hex):".to_string(),
             RadixType::OctRadix => "Goto (Oct):".to_string(),
         }
+    }
+
+    fn signal_done(&mut self) {
+        match self.on_done {
+            Some(mut ref f) => f(),
+            None => ()
+        }
+    }
+
+    fn set_done(&mut self, f: Box<FnMut()>) {
+        self.on_done = Some(f);
     }
 }
 
@@ -451,6 +466,9 @@ pub struct HexEdit {
     overlay: Option<OverlayText>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
+
+    sender: Sender<Box<FnMut(&mut Window)>>,
+    receiver: Receiver<Box<FnMut(&mut Window)>>,
 }
 
 impl HexEdit {
@@ -978,7 +996,7 @@ impl HexEdit {
 
             (0, 26, 0) => self.undo(),
 
-            (0, 7, 0) => self.input_entry = Some(Box::new(GotoInputLine::new()) as Box<InputLine>),
+            (0, 7, 0) => self.start_goto(),
             (0, 6, 0) => self.input_entry = Some(Box::new(FindInputLine::new()) as Box<InputLine>),
             (0, 5, 0)
                 => self.input_entry = Some(Box::new(PathInputLine::new_open()) as Box<InputLine>),
@@ -989,7 +1007,18 @@ impl HexEdit {
         }
     }
 
+    fn start_goto(&mut self) {
+        let gt = GotoInputLine::new();
+        gt.set_done(...)
+        self.input_entry = Some(Box::new() as Box<InputLine>)
+    }
+
+    fn process_msgs(&mut self) {
+        match self.
+    }
+
     pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
+
         let mut done_input = false;
         if self.input_entry.is_none() && self.overlay.is_none() {
             self.view_input(emod, key, ch);
