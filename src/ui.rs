@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std;
 use util::string_with_repeat;
 use std::error::Error;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::rc::Rc;
 
 
@@ -185,7 +185,8 @@ struct GotoInputLine {
     base: BaseInputLine,
     radix: RadixType,
     done_state: Option<bool>,
-    on_done: Option<Box<FnMut>>,
+    on_done: Option<Box<FnMut(isize)>>,
+    on_cancel: Option<Box<FnMut(Option<String>)>>,
 }
 
 impl GotoInputLine {
@@ -195,6 +196,7 @@ impl GotoInputLine {
             radix: RadixType::DecRadix,
             done_state: None,
             on_done: None,
+            on_cancel: None,
         }
     }
 
@@ -207,15 +209,49 @@ impl GotoInputLine {
         }
     }
 
-    fn signal_done(&mut self) {
+    fn do_goto(&mut self) {
+        let radix = match self.radix {
+            RadixType::DecRadix => 10,
+            RadixType::HexRadix => 16,
+            RadixType::OctRadix => 8,
+        };
+
+        let pos: Option<isize> = match str::from_utf8(&self.base.data) {
+            Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
+            Err(_) => None
+        };
+
+        match pos {
+            Some(pos) => {
+                self.signal_done(pos)
+            }
+            None => {
+                self.signal_cancel(Some(format!("Bad position!")));
+            }
+        };
+
+    }
+
+    fn signal_done(&mut self, pos: isize) {
         match self.on_done {
-            Some(mut ref f) => f(),
+            Some(ref mut f) => f(pos),
             None => ()
         }
     }
 
-    fn set_done(&mut self, f: Box<FnMut()>) {
+    fn set_done(&mut self, f: Box<FnMut(isize)>) {
         self.on_done = Some(f);
+    }
+
+    fn signal_cancel(&mut self, msg: Option<String>) {
+        match self.on_cancel {
+            Some(ref mut f) => f(msg),
+            None => ()
+        }
+    }
+
+    fn set_cancel(&mut self, f: Box<FnMut(Option<String>)>) {
+        self.on_cancel = Some(f);
     }
 }
 
@@ -225,11 +261,13 @@ impl InputLine for GotoInputLine {
 
         match (emod, key, ch) {
             (0, 13, 0) => {
-                self.done_state = Some(true);
+                self.do_goto();
+                // self.done_state = Some(true);
                 true
             }
             (0, 27, 0) => {
-                self.done_state = Some(false);
+                self.signal_cancel(None);
+                // self.done_state = Some(false);
                 true
             }
 
@@ -255,6 +293,7 @@ impl InputLine for GotoInputLine {
     }
 
     fn do_action(&mut self, h: &mut HexEdit) -> bool {
+        return false;
         match self.done_state {
             None => return false,
             Some(false) => return true,
@@ -467,12 +506,13 @@ pub struct HexEdit {
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
-    sender: Sender<Box<FnMut(&mut Window)>>,
-    receiver: Receiver<Box<FnMut(&mut Window)>>,
+    sender: Sender<Box<FnMut(&mut HexEdit)>>,
+    receiver: Receiver<Box<FnMut(&mut HexEdit)>>,
 }
 
 impl HexEdit {
     pub fn new() -> HexEdit {
+        let (sender, receiver) = channel();
         HexEdit {
             buffer: Segment::new(),
             cursor_pos: 0,
@@ -492,6 +532,9 @@ impl HexEdit {
             overlay: None,
             cur_path: None,
             clipboard: None,
+
+            sender: sender,
+            receiver: receiver,
         }
     }
 
@@ -1008,16 +1051,37 @@ impl HexEdit {
     }
 
     fn start_goto(&mut self) {
-        let gt = GotoInputLine::new();
-        gt.set_done(...)
-        self.input_entry = Some(Box::new() as Box<InputLine>)
+        let mut gt = GotoInputLine::new();
+        let mut sender_clone0 = self.sender.clone();
+        gt.set_done(Box::new(move |pos| {
+                sender_clone0.send(Box::new(move |obj| {
+                    obj.status(format!("Going to {:?}", pos));
+                    obj.set_cursor(pos * 2);
+                    obj.input_entry = None;
+                })).unwrap()
+            }));
+        let mut sender_clone1 = self.sender.clone();
+        gt.set_cancel(Box::new(move |opt_msg| {
+                sender_clone1.send(Box::new(move |obj| {
+                    match opt_msg {
+                        Some(ref msg) => obj.status(msg.clone()),
+                        None => ()
+                    };
+                    obj.input_entry = None;
+                })).unwrap()
+            }));
+        self.input_entry = Some(Box::new(gt) as Box<InputLine>)
     }
 
     fn process_msgs(&mut self) {
-        match self.
+        match self.receiver.try_recv() {
+            Ok(mut handler) => handler(self),
+            Err(_) => (),
+        }
     }
 
     pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
+        // self.process_msgs();
 
         let mut done_input = false;
         if self.input_entry.is_none() && self.overlay.is_none() {
@@ -1048,6 +1112,8 @@ impl HexEdit {
                 }
             }
         }
+
+        // self.process_msgs();
     }
 
     fn recalculate(&mut self) {
