@@ -1,6 +1,7 @@
 use std::mem;
 use std::iter;
 use std::fmt;
+use std::ops;
 
 use super::util;
 
@@ -95,16 +96,6 @@ impl Segment {
         panic!("Position {} is out of bounds", pos);
     }
 
-    pub fn get<'a>(&'a self, pos: usize) -> &'a u8 {
-        let idx = self.pos_to_index(pos, false);
-        &self.vecs[idx.outer][idx.inner]
-    }
-
-    pub fn get_mut<'a>(&'a mut self, pos: usize) -> &'a mut u8 {
-        let idx = self.pos_to_index(pos, false);
-        &mut self.vecs[idx.outer][idx.inner]
-    }
-
     pub fn iter_range<'a>(&'a self, from: usize, to: usize) -> Items<'a> {
         if to < from {
             panic!("to ({}) is smaller than from ({})!", to, from);
@@ -175,7 +166,7 @@ impl Segment {
             })
         }
     }
-    
+
     pub fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
@@ -230,6 +221,21 @@ impl Segment {
             }
         }
         None
+    }
+}
+
+impl ops::Index<usize> for Segment {
+    type Output = u8;
+    fn index<'a>(&'a self, _index: usize) -> &'a u8 {
+        let idx = self.pos_to_index(_index, false);
+        &self.vecs[idx.outer][idx.inner]
+    }
+}
+
+impl ops::IndexMut<usize> for Segment {
+    fn index_mut<'a>(&'a mut self, _index: usize) -> &'a mut u8 {
+        let idx = self.pos_to_index(_index, false);
+        &mut self.vecs[idx.outer][idx.inner]
     }
 }
 

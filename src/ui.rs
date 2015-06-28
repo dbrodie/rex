@@ -762,7 +762,7 @@ impl HexEdit {
     }
 
     fn set_nibble_at_cursor(&mut self, c: u8) {
-        let mut byte = *self.buffer.get((self.cursor_pos / 2) as usize);
+        let mut byte = self.buffer[(self.cursor_pos / 2) as usize];
 
         byte = match self.cursor_pos & 1 {
             0 => (byte & 0x0f) + c * 16,
