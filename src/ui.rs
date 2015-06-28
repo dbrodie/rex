@@ -1,112 +1,20 @@
 use std::str;
-use std::vec;
 use std::iter;
 use std::cmp;
 use rustc_serialize::hex::FromHex;
 use std::char;
 use std::path::Path;
 use std::path::PathBuf;
-use std;
 use util::string_with_repeat;
 use std::error::Error;
-// use std::sync::mpsc::{Receiver, Sender, channel};
-use std::rc::Rc;
-
+use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
 use super::buffer::Buffer;
 use super::segment::Segment;
-// use super::signals;
+use super::signals;
 
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+signal_decl!{Canceled(Option<String>)}
 
-////////////////
-use std::default::Default;
-use std::sync::mpsc::{Receiver, Sender, channel};
-
-struct Wrap<T>(T);
-
-macro_rules! ident_zip_signal {
-    ( () ; ( $($id: ident,)* ) ; ( $($idr:ident: $tyr:ty,)* ) ) => {
-        fn signal( &mut self, $($idr : $tyr,)* ) {
-            match self.s {
-                Some(ref mut f) => f($($idr),*),
-                None => ()
-            }
-        }
-    };
-    ( ($t0:ty, $($ty:ty,)*) ; ($id0:ident, $($id: ident,)*) ; ($($idr:ident: $tyr:ty,)*) ) => {
-        ident_zip_signal!{($($ty,)*) ; ($($id,)*) ; ( $($idr: $tyr,)* $id0: $t0, ) }
-    }
-}
-
-macro_rules! signal_decl {
-    ( $name:ident($($t:ty ),*) ) => {
-
-        struct $name {
-            s: Option<Box<FnMut($($t),*)>>,
-        }
-
-        impl $name {
-            fn new() -> $name {
-                Default::default()
-            }
-
-            ident_zip_signal!{($($t,)*) ; (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z,); ()}
-
-            fn connect(&mut self, wf: Wrap<Box<FnMut($($t),*)>>) {
-                let Wrap(f) = wf;
-                self.s = Some(f);
-            }
-        }
-
-        impl Default for $name {
-            fn default() -> Self {
-                $name {
-                    s: None,
-                }
-            }
-        }
-
-    }
-}
-
-macro_rules! signal {
-    ( $sr:ident with |$obj:ident, $($id:ident),*| $bl:expr ) => ( Wrap({
-        let sender_clone = $sr.sender.clone();
-        Box::new(move |$($id),*| {sender_clone.send(Box::new(move |$obj|
-            $bl
-        )).unwrap();})
-    }))
-}
-
-macro_rules! signalreceiver_decl {
-    ( $name: ident($t:ty) ) => {
-        struct $name {
-            receiver: Receiver<Box<FnMut(&mut $t)>>,
-            sender: Sender<Box<FnMut(&mut $t)>>,
-        }
-
-        impl $name {
-            fn new() -> $name {
-                let (sender, receiver) = channel();
-                $name {
-                    sender: sender,
-                    receiver: receiver,
-                }
-            }
-
-            fn run(&mut self, ss: &mut $t) {
-                match self.receiver.try_recv() {
-                    Ok(mut handler) => handler(ss),
-                    Err(_) => (),
-                }
-            }
-        }
-    }
-}
-
-
-////////////////
 fn u4_to_hex(b: u8) -> char {
     char::from_digit(b as u32, 16).unwrap()
 }
@@ -124,7 +32,7 @@ struct Rect<T> {
 struct OverlayText {
     text: String,
     offset: isize,
-    done: bool,
+    on_cancel: Canceled,
 }
 
 impl OverlayText {
@@ -132,14 +40,14 @@ impl OverlayText {
         OverlayText {
             text: text,
             offset: 0,
-            done: false,
+            on_cancel: Default::default(),
         }
     }
 
     fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
         match (emod, key, ch) {
             (0, 0, 113) => {
-                self.done = true;
+                self.on_cancel.signal(None);
                 true
             }
             _ => false
@@ -182,16 +90,11 @@ impl OverlayText {
             rb.set_cursor(0, 0);
         }
     }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        self.done
-    }
 }
 
 trait InputLine {
     fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool;
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool);
-    fn do_action(&mut self, h: &mut HexEdit) -> bool;
 }
 
 struct BaseInputLine {
@@ -257,10 +160,6 @@ impl InputLine for BaseInputLine {
             rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));
         }
     }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        return false;
-    }
 }
 
 enum RadixType {
@@ -269,18 +168,13 @@ enum RadixType {
     OctRadix,
 }
 
-signal_decl!{GotoDone(isize)}
-signal_decl!{GotoCanceled(Option<String>)}
-
-signalreceiver_decl!{SignalReceiver(isize)}
-
+signal_decl!{GotoEvent(isize)}
 
 struct GotoInputLine {
     base: BaseInputLine,
     radix: RadixType,
-    done_state: Option<bool>,
-    pub on_done: GotoDone,
-    pub on_cancel: GotoCanceled,
+    pub on_done: GotoEvent,
+    pub on_cancel: Canceled,
 }
 
 impl GotoInputLine {
@@ -288,7 +182,6 @@ impl GotoInputLine {
         GotoInputLine {
             base: BaseInputLine::new("Goto (Dec):".to_string()),
             radix: RadixType::DecRadix,
-            done_state: None,
             on_done: Default::default(),
             on_cancel: Default::default(),
         }
@@ -363,37 +256,6 @@ impl InputLine for GotoInputLine {
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        return false;
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        let radix = match self.radix {
-            RadixType::DecRadix => 10,
-            RadixType::HexRadix => 16,
-            RadixType::OctRadix => 8,
-        };
-
-        let pos: Option<isize> = match str::from_utf8(&self.base.data) {
-            Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
-            Err(_) => None
-        };
-
-        match pos {
-            Some(pos) => {
-                h.status(format!("Going to {:?}", pos));
-                h.set_cursor(pos * 2);
-            }
-            None => {
-                h.status(format!("Bad position!"));
-            }
-        };
-        return true;
-    }
 }
 
 enum DataType {
@@ -402,10 +264,13 @@ enum DataType {
     HexStr,
 }
 
+signal_decl!{FindEvent(Vec<u8>)}
+
 struct FindInputLine {
     base: BaseInputLine,
     data_type: DataType,
-    done_state: Option<bool>
+    on_find: FindEvent,
+    on_cancel: Canceled,
 }
 
 impl FindInputLine {
@@ -413,7 +278,8 @@ impl FindInputLine {
         FindInputLine {
             base: BaseInputLine::new("Find(Ascii): ".to_string()),
             data_type: DataType::AsciiStr,
-            done_state: None,
+            on_find: Default::default(),
+            on_cancel: Default::default(),
         }
     }
 
@@ -425,6 +291,26 @@ impl FindInputLine {
             DataType::HexStr => "Find(Hex): ".to_string(),
         }
     }
+
+    fn do_find(&mut self) {
+        let ll = str::from_utf8(&self.base.data).unwrap().from_hex();
+
+        let needle: Vec<u8> = match self.data_type {
+            DataType::AsciiStr => self.base.data.clone().into(),
+            DataType::UnicodeStr => self.base.data.clone().into(),
+            DataType::HexStr => {
+                match ll {
+                    Ok(n) => n,
+                    Err(_) => {
+                        self.on_cancel.signal(Some(format!("Bad hex value")));
+                        return;
+                    }
+                }
+            }
+        };
+
+        self.on_find.signal(needle);
+    }
 }
 
 impl InputLine for FindInputLine {
@@ -433,11 +319,13 @@ impl InputLine for FindInputLine {
 
         match (emod, key, ch) {
             (0, 13, 0) => {
-                self.done_state = Some(true);
+                self.do_find();
+                // self.done_state = Some(true);
                 true
             }
             (0, 27, 0) => {
-                self.done_state = Some(false);
+                // self.done_state = Some(false);
+                self.on_cancel.signal(None);
                 true
             }
 
@@ -461,54 +349,22 @@ impl InputLine for FindInputLine {
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        let ll = str::from_utf8(&self.base.data).unwrap().from_hex();
-
-        let needle: &[u8] = match self.data_type {
-            DataType::AsciiStr => &self.base.data,
-            DataType::UnicodeStr => &self.base.data,
-            DataType::HexStr => {
-                match ll {
-                    Ok(ref n) => &n,
-                    Err(_) => {
-                        h.status(format!("Bad hex value"));
-                        return true;
-                    }
-                }
-            }
-        };
-
-        h.find_buf(needle);
-        return true;
-    }
 }
+
+signal_decl!{PathEvent(PathBuf)}
 
 struct PathInputLine {
     base: BaseInputLine,
-    done_state: Option<bool>,
-    do_save: bool,
+    on_done: PathEvent,
+    on_cancel: Canceled,
 }
 
 impl PathInputLine {
-    fn new_open() -> PathInputLine {
+    fn new(prefix: String) -> PathInputLine {
         PathInputLine {
-            base: BaseInputLine::new("Open: ".to_string()),
-            done_state: None,
-            do_save: false,
-        }
-    }
-    fn new_save() -> PathInputLine {
-        PathInputLine {
-            base: BaseInputLine::new("Save: ".to_string()),
-            done_state: None,
-            do_save: true,
+            base: BaseInputLine::new(prefix),
+            on_done: Default::default(),
+            on_cancel: Default::default()
         }
     }
 }
@@ -519,11 +375,11 @@ impl InputLine for PathInputLine {
 
         match (emod, key, ch) {
             (0, 13, 0) => {
-                self.done_state = Some(true);
+                self.on_done.signal(PathBuf::from(str::from_utf8(&self.base.data).unwrap()));
                 true
             }
             (0, 27, 0) => {
-                self.done_state = Some(false);
+                self.on_cancel.signal(None);
                 true
             }
             _ => false
@@ -532,22 +388,6 @@ impl InputLine for PathInputLine {
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        if self.do_save {
-            h.save(&Path::new(str::from_utf8(&self.base.data).unwrap()));
-        } else {
-            h.open(&Path::new(str::from_utf8(&self.base.data).unwrap()));
-        }
-
-        return true;
     }
 }
 
@@ -1111,11 +951,9 @@ impl HexEdit {
             (0, 26, 0) => self.undo(),
 
             (0, 7, 0) => self.start_goto(),
-            (0, 6, 0) => self.input_entry = Some(Box::new(FindInputLine::new()) as Box<InputLine>),
-            (0, 5, 0)
-                => self.input_entry = Some(Box::new(PathInputLine::new_open()) as Box<InputLine>),
-            (0, 23, 0)
-                => self.input_entry = Some(Box::new(PathInputLine::new_save()) as Box<InputLine>),
+            (0, 6, 0) => self.start_find(),
+            (0, 5, 0) => self.start_open(),
+            (0, 23, 0) => self.start_save(),
 
             _ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?}", emod, key, ch)),
         }
@@ -1126,8 +964,7 @@ impl HexEdit {
         // let mut sender_clone0 = self.sender.clone();
         let ref sr = self.signal_receiver.as_mut().unwrap();
         gt.on_done.connect(signal!(sr with |obj, pos| {
-            obj.status(format!("Going to {:?}", pos));
-            obj.set_cursor(pos * 2);
+            obj.goto(pos*2);
             obj.input_entry = None;
         }));
 
@@ -1140,6 +977,63 @@ impl HexEdit {
         }));
 
         self.input_entry = Some(Box::new(gt) as Box<InputLine>)
+    }
+
+    fn start_find(&mut self) {
+        let mut find_line = FindInputLine::new();
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        find_line.on_find.connect(signal!(sr with |obj, needle| {
+            obj.find_buf(&needle);
+            obj.input_entry = None;
+        }));
+
+        find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(find_line) as Box<InputLine>)
+    }
+
+    fn start_save(&mut self) {
+        let mut path_line = PathInputLine::new("Save: ".into());
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.save(&path);
+            obj.input_entry = None;
+        }));
+
+        path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+    }
+
+    fn start_open(&mut self) {
+        let mut path_line = PathInputLine::new("Open: ".into());
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.open(&path);
+            obj.input_entry = None;
+        }));
+
+        path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
     }
 
     fn process_msgs(&mut self) {
@@ -1160,11 +1054,6 @@ impl HexEdit {
             if !some_overlay.is_none() {
                 let mut overlay = some_overlay.unwrap();
                 done_input = overlay.input(emod, key, ch);
-                if !overlay.do_action(self) {
-                    self.overlay = Some(overlay);
-                } else {
-                    self.overlay = None;
-                }
             }
 
             let mut some_input = self.input_entry.take();
@@ -1172,11 +1061,6 @@ impl HexEdit {
                 let mut entry = some_input.unwrap();
                 if !done_input {
                     entry.input(emod, key, ch);
-                }
-                if !entry.do_action(self) {
-                    self.input_entry = Some(entry);
-                } else {
-                    self.input_entry = None;
                 }
             }
         }

@@ -7,10 +7,12 @@ use std::path::Path;
 use rustbox::{RustBox, Event};
 use std::default::Default;
 
+#[macro_use] mod signals;
 mod ui;
 mod buffer;
 mod util;
 mod segment;
+
 
 fn main() {
     let mut args = args();
