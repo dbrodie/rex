@@ -1,5 +1,3 @@
-use std::mem;
-use std::iter;
 use std::fmt;
 use std::ops;
 

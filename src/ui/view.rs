@@ -1,429 +1,17 @@
-use std::str;
-use std::vec;
-use std::iter;
 use std::cmp;
-use rustc_serialize::hex::FromHex;
-use std::char;
 use std::path::Path;
 use std::path::PathBuf;
-use std;
 use util::string_with_repeat;
 use std::error::Error;
-
-
-use super::buffer::Buffer;
-use super::segment::Segment;
-
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
-////////////////
-fn u4_to_hex(b: u8) -> char {
-    char::from_digit(b as u32, 16).unwrap()
-}
-fn u8_to_hex(b: u8) -> (char, char) {
-    (u4_to_hex((b >> 4) & 0xF), u4_to_hex(b & 0xF))
-}
+use super::super::buffer::Buffer;
+use super::super::segment::Segment;
+use super::super::signals;
 
-struct Rect<T> {
-    top: T,
-    left: T,
-    bottom: T,
-    right: T
-}
-
-struct OverlayText {
-    text: String,
-    offset: isize,
-    done: bool,
-}
-
-impl OverlayText {
-    fn with_text(text: String) -> OverlayText {
-        OverlayText {
-            text: text,
-            offset: 0,
-            done: false,
-        }
-    }
-
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        match (emod, key, ch) {
-            (0, 0, 113) => {
-                self.done = true;
-                true
-            }
-            _ => false
-        }
-    }
-
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
-        let mut iter =
-            self.text.lines()
-                .map(
-                    // Chomp the width of each line
-                    |line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize)])
-                    // |line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
-                    // Add "empty lines" - we need this so we clear the screen on empty lines
-                    )
-                .chain(repeat)
-            // Take only as many lines as needed
-                .take((area.bottom - area.top) as usize)
-            // And count them
-                .enumerate();
-
-        for (i, opt_line) in iter {
-            // Clean the line
-
-            rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL, Color::White,
-                     Color::Black, &string_with_repeat(' ', (area.right - area.left) as usize));
-
-            // And draw the text if there is one
-            match opt_line {
-                Some(line) => {
-                    rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL,
-                             Color::White, Color::Black, line);
-                }
-                None => ()
-            }
-        }
-
-        if has_focus {
-            rb.set_cursor(0, 0);
-        }
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        self.done
-    }
-}
-
-trait InputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool;
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool);
-    fn do_action(&mut self, h: &mut HexEdit) -> bool;
-}
-
-struct BaseInputLine {
-    prefix: String,
-    data: Vec<u8>,
-    input_pos: isize,
-}
-
-impl BaseInputLine {
-    fn new(prefix: String) -> BaseInputLine {
-        BaseInputLine {
-            prefix: prefix,
-            data: vec!(),
-            input_pos: 0,
-        }
-    }
-}
-
-impl InputLine for BaseInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        let printable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                        .find((ch as u8) as char).is_some();
-        match (emod, key, ch) {
-            (0, 0xFFEB, _) => {
-                if self.input_pos > 0 {
-                    self.input_pos -= 1;
-                }
-            }
-            (0, 0xFFEA, _) => {
-                if self.input_pos < self.data.len() as isize {
-                    self.input_pos += 1;
-                }
-            }
-
-            (0, 0, _) if printable => {
-                self.data.insert(self.input_pos as usize, ch as u8);
-                self.input_pos += 1;
-            },
-            (0, 32, 0) => {
-                self.data.insert(self.input_pos as usize, ' ' as u8);
-                self.input_pos += 1;
-            },
-
-            (0, 127, 0) => {
-                if self.input_pos > 0 {
-                    self.input_pos -= 1;
-                    self.data.remove(self.input_pos as usize);
-                }
-            },
-
-            _ => return false
-        };
-
-        return true;
-    }
-
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        rb.print(area.left as usize, area.top as usize, RB_NORMAL, Color::White, Color::Blue,
-                 &string_with_repeat(' ', (area.right - area.left) as usize));
-        rb.print(area.left as usize, area.top as usize, RB_BOLD, Color::White, Color::Blue,
-                 &format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
-        if has_focus {
-            rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));
-        }
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        return false;
-    }
-}
-
-enum RadixType {
-    DecRadix,
-    HexRadix,
-    OctRadix,
-}
-
-struct GotoInputLine {
-    base: BaseInputLine,
-    radix: RadixType,
-    done_state: Option<bool>
-}
-
-impl GotoInputLine {
-    fn new() -> GotoInputLine {
-        GotoInputLine {
-            base: BaseInputLine::new("Goto (Dec):".to_string()),
-            radix: RadixType::DecRadix,
-            done_state: None,
-        }
-    }
-
-    fn set_radix(&mut self, r: RadixType) {
-        self.radix = r;
-        self.base.prefix = match self.radix {
-            RadixType::DecRadix => "Goto (Dec):".to_string(),
-            RadixType::HexRadix => "Goto (Hex):".to_string(),
-            RadixType::OctRadix => "Goto (Oct):".to_string(),
-        }
-    }
-}
-
-impl InputLine for GotoInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
-
-        match (emod, key, ch) {
-            (0, 13, 0) => {
-                self.done_state = Some(true);
-                true
-            }
-            (0, 27, 0) => {
-                self.done_state = Some(false);
-                true
-            }
-
-            (0, 4, 0) => {
-                self.set_radix(RadixType::DecRadix);
-                true
-            }
-            (0, 24, 0) => {
-                self.set_radix(RadixType::HexRadix);
-                true
-            }
-            (0, 15, 0) => {
-                self.set_radix(RadixType::OctRadix);
-                true
-            }
-
-            _ => false
-        }
-    }
-
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        let radix = match self.radix {
-            RadixType::DecRadix => 10,
-            RadixType::HexRadix => 16,
-            RadixType::OctRadix => 8,
-        };
-
-        let pos: Option<isize> = match str::from_utf8(&self.base.data) {
-            Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
-            Err(_) => None
-        };
-
-        match pos {
-            Some(pos) => {
-                h.status(format!("Going to {:?}", pos));
-                h.set_cursor(pos * 2);
-            }
-            None => {
-                h.status(format!("Bad position!"));
-            }
-        };
-        return true;
-    }
-}
-
-enum DataType {
-    AsciiStr,
-    UnicodeStr,
-    HexStr,
-}
-
-struct FindInputLine {
-    base: BaseInputLine,
-    data_type: DataType,
-    done_state: Option<bool>
-}
-
-impl FindInputLine {
-    fn new() -> FindInputLine {
-        FindInputLine {
-            base: BaseInputLine::new("Find(Ascii): ".to_string()),
-            data_type: DataType::AsciiStr,
-            done_state: None,
-        }
-    }
-
-    fn set_search_data_type(&mut self, dt: DataType) {
-        self.data_type = dt;
-        self.base.prefix = match self.data_type {
-            DataType::AsciiStr => "Find(Ascii): ".to_string(),
-            DataType::UnicodeStr => "Find(Uni): ".to_string(),
-            DataType::HexStr => "Find(Hex): ".to_string(),
-        }
-    }
-}
-
-impl InputLine for FindInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
-
-        match (emod, key, ch) {
-            (0, 13, 0) => {
-                self.done_state = Some(true);
-                true
-            }
-            (0, 27, 0) => {
-                self.done_state = Some(false);
-                true
-            }
-
-            (0, 1, 0) => {
-                self.set_search_data_type(DataType::AsciiStr);
-                true
-            }
-            (0, 21, 0) => {
-                self.set_search_data_type(DataType::UnicodeStr);
-                true
-            }
-            (0, 24, 0) => {
-                self.set_search_data_type(DataType::HexStr);
-                true
-            }
-
-            _ => false
-        }
-    }
-
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        let ll = str::from_utf8(&self.base.data).unwrap().from_hex();
-
-        let needle: &[u8] = match self.data_type {
-            DataType::AsciiStr => &self.base.data,
-            DataType::UnicodeStr => &self.base.data,
-            DataType::HexStr => {
-                match ll {
-                    Ok(ref n) => &n,
-                    Err(_) => {
-                        h.status(format!("Bad hex value"));
-                        return true;
-                    }
-                }
-            }
-        };
-
-        h.find_buf(needle);
-        return true;
-    }
-}
-
-struct PathInputLine {
-    base: BaseInputLine,
-    done_state: Option<bool>,
-    do_save: bool,
-}
-
-impl PathInputLine {
-    fn new_open() -> PathInputLine {
-        PathInputLine {
-            base: BaseInputLine::new("Open: ".to_string()),
-            done_state: None,
-            do_save: false,
-        }
-    }
-    fn new_save() -> PathInputLine {
-        PathInputLine {
-            base: BaseInputLine::new("Save: ".to_string()),
-            done_state: None,
-            do_save: true,
-        }
-    }
-}
-
-impl InputLine for PathInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
-
-        match (emod, key, ch) {
-            (0, 13, 0) => {
-                self.done_state = Some(true);
-                true
-            }
-            (0, 27, 0) => {
-                self.done_state = Some(false);
-                true
-            }
-            _ => false
-        }
-    }
-
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
-    }
-
-    fn do_action(&mut self, h: &mut HexEdit) -> bool {
-        match self.done_state {
-            None => return false,
-            Some(false) => return true,
-            Some(true) => () // We do it after the match
-        };
-
-        if self.do_save {
-            h.save(&Path::new(str::from_utf8(&self.base.data).unwrap()));
-        } else {
-            h.open(&Path::new(str::from_utf8(&self.base.data).unwrap()));
-        }
-
-        return true;
-    }
-}
+use super::common::{Rect, u8_to_hex};
+use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
+use super::overlay::OverlayText;
 
 #[derive(Debug)]
 enum UndoAction {
@@ -431,6 +19,8 @@ enum UndoAction {
     Insert(isize, Vec<u8>),
     Write(isize, Vec<u8>)
 }
+
+signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: Segment,
@@ -451,6 +41,8 @@ pub struct HexEdit {
     overlay: Option<OverlayText>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
+
+    signal_receiver: Option<HexEditSignalReceiver>,
 }
 
 impl HexEdit {
@@ -474,6 +66,8 @@ impl HexEdit {
             overlay: None,
             cur_path: None,
             clipboard: None,
+
+            signal_receiver: Some(HexEditSignalReceiver::new()),
         }
     }
 
@@ -978,18 +572,101 @@ impl HexEdit {
 
             (0, 26, 0) => self.undo(),
 
-            (0, 7, 0) => self.input_entry = Some(Box::new(GotoInputLine::new()) as Box<InputLine>),
-            (0, 6, 0) => self.input_entry = Some(Box::new(FindInputLine::new()) as Box<InputLine>),
-            (0, 5, 0)
-                => self.input_entry = Some(Box::new(PathInputLine::new_open()) as Box<InputLine>),
-            (0, 23, 0)
-                => self.input_entry = Some(Box::new(PathInputLine::new_save()) as Box<InputLine>),
+            (0, 7, 0) => self.start_goto(),
+            (0, 6, 0) => self.start_find(),
+            (0, 5, 0) => self.start_open(),
+            (0, 23, 0) => self.start_save(),
 
             _ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?}", emod, key, ch)),
         }
     }
 
+    fn start_goto(&mut self) {
+        let mut gt = GotoInputLine::new();
+        // let mut sender_clone0 = self.sender.clone();
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        gt.on_done.connect(signal!(sr with |obj, pos| {
+            obj.goto(pos*2);
+            obj.input_entry = None;
+        }));
+
+        gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(gt) as Box<InputLine>)
+    }
+
+    fn start_find(&mut self) {
+        let mut find_line = FindInputLine::new();
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        find_line.on_find.connect(signal!(sr with |obj, needle| {
+            obj.find_buf(&needle);
+            obj.input_entry = None;
+        }));
+
+        find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(find_line) as Box<InputLine>)
+    }
+
+    fn start_save(&mut self) {
+        let mut path_line = PathInputLine::new("Save: ".into());
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.save(&path);
+            obj.input_entry = None;
+        }));
+
+        path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+    }
+
+    fn start_open(&mut self) {
+        let mut path_line = PathInputLine::new("Open: ".into());
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.open(&path);
+            obj.input_entry = None;
+        }));
+
+        path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.input_entry = None;
+        }));
+
+        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+    }
+
+    fn process_msgs(&mut self) {
+        let mut sr = self.signal_receiver.take().unwrap();
+        sr.run(self);
+        self.signal_receiver = Some(sr);
+    }
+
     pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
+        self.process_msgs();
+
         let mut done_input = false;
         if self.input_entry.is_none() && self.overlay.is_none() {
             self.view_input(emod, key, ch);
@@ -999,11 +676,6 @@ impl HexEdit {
             if !some_overlay.is_none() {
                 let mut overlay = some_overlay.unwrap();
                 done_input = overlay.input(emod, key, ch);
-                if !overlay.do_action(self) {
-                    self.overlay = Some(overlay);
-                } else {
-                    self.overlay = None;
-                }
             }
 
             let mut some_input = self.input_entry.take();
@@ -1012,13 +684,10 @@ impl HexEdit {
                 if !done_input {
                     entry.input(emod, key, ch);
                 }
-                if !entry.do_action(self) {
-                    self.input_entry = Some(entry);
-                } else {
-                    self.input_entry = None;
-                }
             }
         }
+
+        self.process_msgs();
     }
 
     fn recalculate(&mut self) {

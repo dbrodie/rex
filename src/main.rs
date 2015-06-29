@@ -7,14 +7,17 @@ use std::path::Path;
 use rustbox::{RustBox, Event};
 use std::default::Default;
 
+#[macro_use] mod signals;
 mod ui;
 mod buffer;
 mod util;
 mod segment;
 
+use ui::view::HexEdit;
+
 fn main() {
     let mut args = args();
-    let mut edit = ui::HexEdit::new();
+    let mut edit = HexEdit::new();
 
     if args.len() > 1 {
         edit.open(&Path::new(&args.nth(1).unwrap()));
