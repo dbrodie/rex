@@ -1,7 +1,6 @@
 extern crate rustbox;
 extern crate rustc_serialize;
 
-use std::os;
 use std::env::args;
 use std::path::Path;
 use rustbox::{RustBox, Event};

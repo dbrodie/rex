@@ -32,7 +32,7 @@ impl OverlayText {
 
     pub fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
-        let mut iter =
+        let iter =
             self.text.lines()
                 .map(
                     // Chomp the width of each line

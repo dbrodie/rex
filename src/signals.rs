@@ -22,6 +22,7 @@ macro_rules! signal_decl {
         }
 
         impl $name {
+            #[allow(dead_code)]
             pub fn new() -> $name {
                 Default::default()
             }

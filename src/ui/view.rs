@@ -322,7 +322,7 @@ impl HexEdit {
             }
         };
 
-        let mut del_start = cmp::min(selection_pos, cursor_pos) / 2;
+        let del_start = cmp::min(selection_pos, cursor_pos) / 2;
         let mut del_stop = cmp::max(selection_pos, cursor_pos) / 2 + 1;
 
         if del_stop > self.data_size / 2 {

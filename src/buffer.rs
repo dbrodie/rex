@@ -4,7 +4,6 @@ use std::path::Path;
 use std::io::Read;
 use std::io::Write;
 
-use super::util;
 use super::segment::Segment;
 
 pub trait Buffer {
