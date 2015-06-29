@@ -8,7 +8,7 @@ use super::common::{Rect, Canceled};
 pub struct OverlayText {
     text: String,
     offset: isize,
-    on_cancel: Canceled,
+    pub on_cancel: Canceled,
 }
 
 impl OverlayText {

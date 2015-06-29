@@ -561,10 +561,7 @@ impl HexEdit {
                 self.status(format!("nibble_active = {:?}", t));
             },
 
-            (0, 31, 0) => {
-                let help_text = include_str!("Help.txt");
-				self.overlay = Some(OverlayText::with_text(help_text.to_string()))
-            }
+            (0, 31, 0) => self.start_help(),
 
             (0, 15, 0) => self.toggle_insert_mode(),
 
@@ -579,6 +576,20 @@ impl HexEdit {
 
             _ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?}", emod, key, ch)),
         }
+    }
+
+    fn start_help(&mut self) {
+        let help_text = include_str!("Help.txt");
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let mut ot = OverlayText::with_text(help_text.to_string());
+        ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            match opt_msg {
+                Some(ref msg) => obj.status(msg.clone()),
+                None => ()
+            };
+            obj.overlay = None;
+        }));
+        self.overlay = Some(ot);
     }
 
     fn start_goto(&mut self) {
