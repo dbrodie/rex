@@ -2,7 +2,7 @@
 
 macro_rules! ident_zip_signal {
     ( () ; ( $($id: ident,)* ) ; ( $($idr:ident: $tyr:ty,)* ) ) => {
-        fn signal( &mut self, $($idr : $tyr,)* ) {
+        pub fn signal( &mut self, $($idr : $tyr,)* ) {
             match self.s {
                 Some(ref mut f) => f($($idr),*),
                 None => ()
@@ -17,18 +17,18 @@ macro_rules! ident_zip_signal {
 macro_rules! signal_decl {
     ( $name:ident($($t:ty ),*) ) => {
 
-        struct $name {
+        pub struct $name {
             s: Option<Box<FnMut($($t),*)>>,
         }
 
         impl $name {
-            fn new() -> $name {
+            pub fn new() -> $name {
                 Default::default()
             }
 
             ident_zip_signal!{($($t,)*) ; (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z,); ()}
 
-            fn connect(&mut self, f: Box<FnMut($($t),*)>) {
+            pub fn connect(&mut self, f: Box<FnMut($($t),*)>) {
                 self.s = Some(f);
             }
         }

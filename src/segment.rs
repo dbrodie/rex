@@ -1,5 +1,3 @@
-use std::mem;
-use std::iter;
 use std::fmt;
 
 use super::util;
@@ -175,7 +173,7 @@ impl Segment {
             })
         }
     }
-    
+
     pub fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
