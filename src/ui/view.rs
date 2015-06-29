@@ -667,25 +667,23 @@ impl HexEdit {
     pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
         self.process_msgs();
 
-        let mut done_input = false;
-        if self.input_entry.is_none() && self.overlay.is_none() {
-            self.view_input(emod, key, ch);
-        } else {
-            let mut some_overlay = self.overlay.take();
-
-            if !some_overlay.is_none() {
-                let mut overlay = some_overlay.unwrap();
-                done_input = overlay.input(emod, key, ch);
+        match self.overlay {
+            Some(ref mut overlay) => {
+                overlay.input(emod, key, ch);
+                return;
             }
-
-            let mut some_input = self.input_entry.take();
-            if !some_input.is_none() {
-                let mut entry = some_input.unwrap();
-                if !done_input {
-                    entry.input(emod, key, ch);
-                }
-            }
+            None => ()
         }
+
+        match self.input_entry {
+            Some(ref mut input_entry) => {
+                input_entry.input(emod, key, ch);
+                return;
+            }
+            None => ()
+        }
+
+        self.view_input(emod, key, ch);
 
         self.process_msgs();
     }
