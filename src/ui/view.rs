@@ -1,8 +1,10 @@
+use std::str;
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
 use util::string_with_repeat;
 use std::error::Error;
+use std::ascii::AsciiExt;
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
 use super::super::buffer::Buffer;
@@ -113,25 +115,22 @@ impl HexEdit {
                 }
             }
 
-            let mut s = String::new();
-            let mut byte_str = ".".to_string();
+            let mut hex_str = [' ' as u8, ' ' as u8];
+            let mut byte_str = '.' as u8;
             match maybe_byte {
                 Some(&byte) => {
                     let (char_0, char_1) = u8_to_hex(byte);
-                    s.push(char_0);
-                    s.push(char_1);
-                    let alphanumeric =
-                        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                        .find(byte as char).is_some();
-                    if alphanumeric {
-                        byte_str = String::from_utf8(vec!(byte)).unwrap()
+                    hex_str[0] = char_0 as u8;
+                    hex_str[1] = char_1 as u8;
+                    let bc =  byte as char;
+                    if bc.is_ascii() && bc.is_alphanumeric() {
+                        byte_str = byte;
                     }
                 }
 
                 // Then this is the last iteration so that insertion past the last byte works
                 None => {
-                    s.push(' ');
-                    byte_str = " ".to_string();
+                    byte_str = ' ' as u8;
                 }
             }
 
@@ -157,7 +156,7 @@ impl HexEdit {
             };
 
             rb.print(nibble_view_pos[0], nibble_view_pos[1] as usize, RB_NORMAL, nibble_colors[0],
-                     nibble_colors[1], &s);
+                     nibble_colors[1], str::from_utf8(&hex_str).unwrap());
             if prev_in_selection && in_selection {
                 rb.print(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, RB_NORMAL,
                          nibble_colors[0], nibble_colors[1], " ");
@@ -177,7 +176,7 @@ impl HexEdit {
             };
 
             rb.print((byte_view_start + offset) as usize, row as usize, RB_NORMAL, byte_colors[0],
-                     byte_colors[1], &byte_str);
+                     byte_colors[1], str::from_utf8(&[byte_str]).unwrap());
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
                 rb.set_cursor(byte_view_start + offset, row);
             }
