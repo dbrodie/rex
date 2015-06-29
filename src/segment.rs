@@ -38,8 +38,8 @@ pub struct Slices<'a> {
     outer: usize,
 }
 
-static min_block_size: usize = 1024 * 1024;
-static max_block_size: usize = 4 * 1024 * 1024;
+static MIN_BLOCK_SIZE: usize = 1024 * 1024;
+static MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 
 impl Segment {
     pub fn _internal_debug(&self) -> Vec<usize> {
@@ -143,16 +143,16 @@ impl Segment {
             self.vecs.push(Vec::new());
         }
 
-        if self.vecs[index.outer].len() < max_block_size {
+        if self.vecs[index.outer].len() < MAX_BLOCK_SIZE {
             return index;
         }
 
-        let page_start_idx = (index.inner / min_block_size) * min_block_size;
+        let page_start_idx = (index.inner / MIN_BLOCK_SIZE) * MIN_BLOCK_SIZE;
         if page_start_idx == 0 {
-            if self.vecs[index.outer].len() > max_block_size {
-                let insert_vec: Vec < _ >= self.vecs[index.outer][min_block_size..].into(); self
+            if self.vecs[index.outer].len() > MAX_BLOCK_SIZE {
+                let insert_vec: Vec < _ >= self.vecs[index.outer][MIN_BLOCK_SIZE..].into(); self
                                            .vecs.insert(index.outer + 1, insert_vec); self
-                                           .vecs[index.outer].truncate(min_block_size);
+                                           .vecs[index.outer].truncate(MIN_BLOCK_SIZE);
             }
 
             return index;
