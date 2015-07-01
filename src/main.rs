@@ -1,10 +1,12 @@
 extern crate rustbox;
 extern crate rustc_serialize;
+extern crate gag;
 
 use std::env::args;
 use std::path::Path;
 use rustbox::{RustBox, Event};
 use std::default::Default;
+use gag::Hold;
 
 #[macro_use] mod signals;
 mod ui;
@@ -21,6 +23,8 @@ fn main() {
     if args.len() > 1 {
         edit.open(&Path::new(&args.nth(1).unwrap()));
     }
+
+    let hold = (Hold::stdout().unwrap(), Hold::stderr().unwrap());
 
     let rb = RustBox::init(Default::default()).unwrap();
 
@@ -43,6 +47,7 @@ fn main() {
         rb.present();
     }
     drop(rb);
+    drop(hold);
 }
 
 // fn test_main() {

@@ -3,6 +3,7 @@ name = "hyksa"
 version = "0.1.0"
 dependencies = [
  "env_logger 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gag 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustbox 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
