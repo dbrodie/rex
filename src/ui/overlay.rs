@@ -4,6 +4,8 @@ use util::string_with_repeat;
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 
 use super::common::{Rect, Canceled};
+use super::RustBoxEx::{RustBoxEx, Style};
+
 
 pub struct OverlayText {
     text: String,
@@ -49,14 +51,14 @@ impl OverlayText {
         for (i, opt_line) in iter {
             // Clean the line
 
-            rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL, Color::White,
-                     Color::Black, &string_with_repeat(' ', (area.right - area.left) as usize));
+            rb.print_style(area.left as usize, (area.top + i as isize) as usize, Style::Default,
+                &string_with_repeat(' ', (area.right - area.left) as usize));
 
             // And draw the text if there is one
             match opt_line {
                 Some(line) => {
-                    rb.print(area.left as usize, (area.top + i as isize) as usize, RB_NORMAL,
-                             Color::White, Color::Black, line);
+                    rb.print_style(area.left as usize, (area.top + i as isize) as usize,
+                        Style::Default, line);
                 }
                 None => ()
             }

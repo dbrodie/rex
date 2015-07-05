@@ -8,6 +8,8 @@ use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
 use super::super::signals;
+use super::RustBoxEx::{RustBoxEx, Style};
+
 
 use super::common::{Rect, Canceled};
 
@@ -71,9 +73,9 @@ impl InputLine for BaseInputLine {
     }
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
-        rb.print(area.left as usize, area.top as usize, RB_NORMAL, Color::White, Color::Blue,
+        rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &string_with_repeat(' ', (area.right - area.left) as usize));
-        rb.print(area.left as usize, area.top as usize, RB_BOLD, Color::White, Color::Blue,
+        rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
         if has_focus {
             rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));

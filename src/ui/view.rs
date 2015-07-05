@@ -5,13 +5,14 @@ use std::path::PathBuf;
 use util::string_with_repeat;
 use std::error::Error;
 use std::ascii::AsciiExt;
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::{RustBox};
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
 use super::super::signals;
 
 use super::common::{Rect, u8_to_hex};
+use super::RustBoxEx::{RustBoxEx, Style};
 use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
 
@@ -107,11 +108,9 @@ impl HexEdit {
 
             if offset == 0 {
                 if self.nibble_start == 5 {
-                    rb.print(0, row as usize, RB_NORMAL, Color::White, Color::Black,
-                             &format!("{:04X}", byte_pos));
+                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}", byte_pos));
                 } else {
-                    rb.print(0, row as usize, RB_NORMAL, Color::White, Color::Black,
-                             &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
                 }
             }
 
@@ -149,17 +148,17 @@ impl HexEdit {
             let nibble_view_pos = [
                 (nibble_view_start + (offset * 3)) as usize, row as usize
             ];
-            let nibble_colors = if (!self.nibble_active && at_current_byte) || in_selection {
-                [Color::Black, Color::White]
+            let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
+                Style::Selection
             } else {
-                [Color::White, Color::Black]
+                Style::Default
             };
 
-            rb.print(nibble_view_pos[0], nibble_view_pos[1] as usize, RB_NORMAL, nibble_colors[0],
-                     nibble_colors[1], str::from_utf8(&hex_str).unwrap());
+            rb.print_style(nibble_view_pos[0], nibble_view_pos[1] as usize, nibble_style,
+                str::from_utf8(&hex_str).unwrap());
             if prev_in_selection && in_selection {
-                rb.print(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, RB_NORMAL,
-                         nibble_colors[0], nibble_colors[1], " ");
+                rb.print_style(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, nibble_style,
+                    " ");
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
@@ -169,14 +168,14 @@ impl HexEdit {
 
             prev_in_selection = in_selection;
 
-            let byte_colors = if (self.nibble_active && at_current_byte) || in_selection {
-                [Color::Black, Color::White]
+            let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
+                Style::Selection
             } else {
-                [Color::White, Color::Black]
+                Style::Default
             };
 
-            rb.print((byte_view_start + offset) as usize, row as usize, RB_NORMAL, byte_colors[0],
-                     byte_colors[1], str::from_utf8(&[byte_str]).unwrap());
+            rb.print_style((byte_view_start + offset) as usize, row as usize, byte_style,
+                str::from_utf8(&[byte_str]).unwrap());
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
                 rb.set_cursor(byte_view_start + offset, row);
             }
@@ -204,11 +203,9 @@ impl HexEdit {
             None => ()
         };
 
-        rb.print(0, rb.height() - 1, RB_NORMAL, Color::Black, Color::White,
-                 &string_with_repeat(' ', rb.width()));
+        rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
         match self.status_log.last() {
-            Some(ref status_line) => rb.print(0, rb.height() - 1, RB_NORMAL, Color::Black,
-                                              Color::White, &status_line),
+            Some(ref status_line) => rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line),
             None => (),
         }
         let right_status = format!(
@@ -217,8 +214,7 @@ impl HexEdit {
             self.cursor_pos, self.selection_start, self.insert_mode);
         // let lll = self.buffer.segment._internal_debug();
         // let right_status = format!("clip = {}, vecs = {}", self.clipboard.is_some(), lll);
-        rb.print(rb.width() - right_status.len(), rb.height() - 1, RB_NORMAL, Color::Black,
-                 Color::White, &right_status);
+        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
     }
 
     fn status(&mut self, st: String) {
