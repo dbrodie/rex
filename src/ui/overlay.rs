@@ -1,7 +1,7 @@
 use std::iter;
 use std::cmp;
 use util::string_with_repeat;
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use super::common::{Rect, Canceled};
@@ -14,7 +14,6 @@ pub enum OverlayActions {
 
 pub struct OverlayText {
     text: String,
-    offset: isize,
     pub on_cancel: Canceled,
 }
 
@@ -22,7 +21,6 @@ impl OverlayText {
     pub fn with_text(text: String) -> OverlayText {
         OverlayText {
             text: text,
-            offset: 0,
             on_cancel: Default::default(),
         }
     }

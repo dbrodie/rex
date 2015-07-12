@@ -6,7 +6,6 @@ use std::env::args;
 use std::path::Path;
 use rustbox::{RustBox, Event, InputMode, InitOptions};
 use rustbox::keyboard::Key;
-use std::default::Default;
 use gag::Hold;
 
 #[macro_use] mod signals;

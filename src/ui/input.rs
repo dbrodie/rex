@@ -1,4 +1,3 @@
-use rustbox::Event;
 use rustbox::keyboard::Key;
 
 use super::view::HexEditActions;

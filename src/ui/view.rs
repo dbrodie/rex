@@ -11,7 +11,6 @@ use rustbox::keyboard::Key;
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
-use super::super::signals;
 
 use super::common::{Rect, u8_to_hex};
 use super::RustBoxEx::{RustBoxEx, Style};

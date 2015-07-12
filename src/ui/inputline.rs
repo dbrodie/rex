@@ -1,14 +1,11 @@
 use std::str;
 use rustc_serialize::hex::FromHex;
-use std::char;
 use std::path::PathBuf;
 use util::string_with_repeat;
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use super::super::buffer::Buffer;
-use super::super::segment::Segment;
-use super::super::signals;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 
