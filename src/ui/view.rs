@@ -6,6 +6,8 @@ use util::string_with_repeat;
 use std::error::Error;
 use std::ascii::AsciiExt;
 use rustbox::{RustBox};
+use rustbox::keyboard::Key;
+
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
@@ -13,6 +15,7 @@ use super::super::signals;
 
 use super::common::{Rect, u8_to_hex};
 use super::RustBoxEx::{RustBoxEx, Style};
+use super::input::Input;
 use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
 
@@ -20,7 +23,32 @@ use super::overlay::OverlayText;
 enum UndoAction {
     Delete(isize, isize),
     Insert(isize, Vec<u8>),
-    Write(isize, Vec<u8>)
+    Write(isize, Vec<u8>),
+}
+
+#[derive(Copy,Clone,Debug)]
+pub enum HexEditActions {
+    Edit(char),
+    SwitchView,
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+    MovePageUp,
+    MovePageDown,
+    Delete,
+    DeleteWithMove,
+    CopySelection,
+    CutSelection,
+    PasteSelection,
+    Undo,
+    ToggleInsert,
+    ToggleSelecion,
+    HelpView,
+    AskGoto,
+    AskFind,
+    AskOpen,
+    AskSave
 }
 
 signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
@@ -39,6 +67,7 @@ pub struct HexEdit {
     nibble_active: bool,
     selection_start: Option<isize>,
     insert_mode: bool,
+    input: Input,
     undo_stack: Vec<UndoAction>,
     input_entry: Option<Box<InputLine>>,
     overlay: Option<OverlayText>,
@@ -69,7 +98,7 @@ impl HexEdit {
             overlay: None,
             cur_path: None,
             clipboard: None,
-
+            input: Input::new(),
             signal_receiver: Some(HexEditSignalReceiver::new()),
         }
     }
@@ -496,80 +525,86 @@ impl HexEdit {
         self.do_action(UndoAction::Insert(pos_div2, data), true);
     }
 
-    fn view_input(&mut self, emod: u8, key: u16, ch: u32) {
-        let printable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                        .find((ch as u8) as char).is_some();
-        match (emod, key, ch) {
+    fn view_input(&mut self, key: Key) {
+        let action = self.input.editor_input(key);
+        if action.is_none() {
+            return;
+        }
+        match action.unwrap() {
             // Movement
-            (0, 0xFFEB, _) if self.nibble_active => self.move_cursor(-1),
-            (0, 0xFFEA, _) if self.nibble_active => self.move_cursor(1),
-            (0, 0xFFEB, _) if !self.nibble_active => self.move_cursor(-2),
-            (0, 0xFFEA, _) if !self.nibble_active => self.move_cursor(2),
-            (0, 0xFFED, _) => {
+            HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
+            HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
+            HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
+            HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
+            HexEditActions::MoveUp => {
                 let t = -self.nibble_width;
                 self.move_cursor(t)
             }
-            (0, 0xFFEC, _) => {
+            HexEditActions::MoveDown => {
                 let t = self.nibble_width;
                 self.move_cursor(t)
             }
 
-            (0, 0xFFEF, _) => {
+            HexEditActions::MovePageUp => {
                 let t = -(self.nibble_size - self.nibble_width) / 2;
                 self.move_cursor(t)
             }
-            (0, 0xFFEE, _) => {
+            HexEditActions::MovePageDown => {
                 let t = (self.nibble_size - self.nibble_width) / 2;
                 self.move_cursor(t)
             }
 
             // UndoAction::Delete
-            (0, 0xFFF2, _) => self.delete_at_cursor(false),
-            (0, 127, 0) => self.delete_at_cursor(true),
+            HexEditActions::Delete => self.delete_at_cursor(false),
+            HexEditActions::DeleteWithMove => self.delete_at_cursor(true),
 
             // Ctrl X, C V
-            (0, 24, 0) => self.edit_cut(),
-            (0, 3, 0) => self.edit_copy(),
-            (0, 22, 0) => self.edit_paste(),
+            HexEditActions::CutSelection => self.edit_cut(),
+            HexEditActions::CopySelection => self.edit_copy(),
+            HexEditActions::PasteSelection => self.edit_paste(),
 
             // Hex input for nibble view
-            (0, 0, 48...57) if self.nibble_active => {
-                self.write_nibble_at_cursor((ch - 48) as u8);
-                self.move_cursor(1)
-            }
-            (0, 0, 97...102) if self.nibble_active => {
-                self.write_nibble_at_cursor((ch - 97 + 10) as u8);
-                self.move_cursor(1)
-            }
-            (0, 0, 65...70) if self.nibble_active => {
-                self.write_nibble_at_cursor((ch - 65 + 10) as u8);
-                self.move_cursor(1)
-            }
-            (0, 0, _) if !self.nibble_active && printable => {
-                self.write_byte_at_cursor(ch as u8);
-                self.move_cursor(2);
+            HexEditActions::Edit(ch) if self.nibble_active => {
+                match ch.to_digit(16) {
+                    Some(val) => {
+                        self.write_nibble_at_cursor(val as u8);
+                        self.move_cursor(1);
+                    }
+                    None => ()  // TODO: Show error?
+                }
             },
 
-            (0, 9, 0) => {
+            // Ascii edit for byte view
+            HexEditActions::Edit(ch) if !self.nibble_active => {
+                if ch.len_utf8() == 1 && ch.is_alphanumeric() {
+                    // TODO: Make it printable rather than alphanumeric
+                    self.write_byte_at_cursor(ch as u8);
+                    self.move_cursor(2);
+                } else {
+                    // TODO: Show error?
+                }
+            }
+
+            HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
                 let t = self.nibble_active;
                 self.status(format!("nibble_active = {:?}", t));
             },
 
-            (0, 31, 0) => self.start_help(),
+            HexEditActions::HelpView => self.start_help(),
 
-            (0, 15, 0) => self.toggle_insert_mode(),
+            HexEditActions::ToggleInsert => self.toggle_insert_mode(),
 
-            (0, 19, 0) => self.toggle_selection(),
+            HexEditActions::ToggleSelecion => self.toggle_selection(),
 
-            (0, 26, 0) => self.undo(),
+            HexEditActions::Undo => self.undo(),
 
-            (0, 7, 0) => self.start_goto(),
-            (0, 6, 0) => self.start_find(),
-            (0, 5, 0) => self.start_open(),
-            (0, 23, 0) => self.start_save(),
+            HexEditActions::AskGoto => self.start_goto(),
+            HexEditActions::AskFind => self.start_find(),
+            HexEditActions::AskOpen => self.start_open(),
+            HexEditActions::AskSave => self.start_save(),
 
-            _ => self.status(format!("emod = {:?}, key = {:?}, ch = {:?}", emod, key, ch)),
+            _  => self.status(format!("key = {:?}", key)),
         }
     }
 
@@ -670,12 +705,12 @@ impl HexEdit {
         self.signal_receiver = Some(sr);
     }
 
-    pub fn input(&mut self, emod: u8, key: u16, ch: u32) {
+    pub fn input(&mut self, key: Key) {
         self.process_msgs();
 
         match self.overlay {
             Some(ref mut overlay) => {
-                overlay.input(emod, key, ch);
+                overlay.input(&self.input, key);
                 return;
             }
             None => ()
@@ -683,13 +718,13 @@ impl HexEdit {
 
         match self.input_entry {
             Some(ref mut input_entry) => {
-                input_entry.input(emod, key, ch);
+                input_entry.input(&self.input, key);
                 return;
             }
             None => ()
         }
 
-        self.view_input(emod, key, ch);
+        self.view_input(key);
 
         self.process_msgs();
     }

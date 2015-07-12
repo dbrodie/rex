@@ -2,10 +2,15 @@ use std::iter;
 use std::cmp;
 use util::string_with_repeat;
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::keyboard::Key;
 
 use super::common::{Rect, Canceled};
 use super::RustBoxEx::{RustBoxEx, Style};
+use super::input::Input;
 
+pub enum OverlayActions {
+    Cancel,
+}
 
 pub struct OverlayText {
     text: String,
@@ -22,13 +27,15 @@ impl OverlayText {
         }
     }
 
-    pub fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        match (emod, key, ch) {
-            (0, 0, 113) => {
+    pub fn input(&mut self, input: &Input, key: Key) -> bool {
+        let action = if let Some(action) = input.overlay_input(key) { action } else {
+            return false;
+        };
+        match action {
+            OverlayActions::Cancel => {
                 self.on_cancel.signal(None);
                 true
             }
-            _ => false
         }
     }
 

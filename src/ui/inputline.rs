@@ -4,17 +4,29 @@ use std::char;
 use std::path::PathBuf;
 use util::string_with_repeat;
 use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::keyboard::Key;
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
 use super::super::signals;
 use super::RustBoxEx::{RustBoxEx, Style};
+use super::input::Input;
 
 
 use super::common::{Rect, Canceled};
 
+pub enum BaseInputLineActions {
+    Edit(char),
+    Ctrl(char),
+    MoveLeft,
+    MoveRight,
+    DeleteWithMove,
+    Ok,
+    Cancel
+}
+
 pub trait InputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool;
+    fn input(&mut self, input: &Input, key: Key) -> bool;
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool);
 }
 
@@ -35,37 +47,36 @@ impl BaseInputLine {
 }
 
 impl InputLine for BaseInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        let printable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                        .find((ch as u8) as char).is_some();
-        match (emod, key, ch) {
-            (0, 0xFFEB, _) => {
+    fn input(&mut self, input: &Input, key: Key) -> bool {
+        let action = if let Some(action) = input.inputline_input(key) { action } else {
+            return false;
+        };
+
+        match action {
+            BaseInputLineActions::MoveLeft => {
                 if self.input_pos > 0 {
                     self.input_pos -= 1;
                 }
             }
-            (0, 0xFFEA, _) => {
+            BaseInputLineActions::MoveRight => {
                 if self.input_pos < self.data.len() as isize {
                     self.input_pos += 1;
                 }
             }
-
-            (0, 0, _) if printable => {
-                self.data.insert(self.input_pos as usize, ch as u8);
-                self.input_pos += 1;
-            },
-            (0, 32, 0) => {
-                self.data.insert(self.input_pos as usize, ' ' as u8);
-                self.input_pos += 1;
-            },
-
-            (0, 127, 0) => {
+            BaseInputLineActions::Edit(ch) => {
+                if ch.len_utf8() == 1 && ch.is_alphanumeric() {
+                    self.data.insert(self.input_pos as usize, ch as u8);
+                    self.input_pos += 1;
+                } else {
+                    // TODO: MAke it printable rather than alphanumeric
+                }
+            }
+            BaseInputLineActions::DeleteWithMove => {
                 if self.input_pos > 0 {
                     self.input_pos -= 1;
                     self.data.remove(self.input_pos as usize);
                 }
-            },
-
+            }
             _ => return false
         };
 
@@ -142,30 +153,34 @@ impl GotoInputLine {
 }
 
 impl InputLine for GotoInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
+    fn input(&mut self, input: &Input, key: Key) -> bool {
+        if self.base.input(input, key) { return true }
 
-        match (emod, key, ch) {
-            (0, 13, 0) => {
+        let action = if let Some(action) = input.inputline_input(key) { action } else {
+            return false;
+        };
+
+        match action {
+            BaseInputLineActions::Ok => {
                 self.do_goto();
                 // self.done_state = Some(true);
                 true
             }
-            (0, 27, 0) => {
+            BaseInputLineActions::Cancel => {
                 self.on_cancel.signal(None);
                 // self.done_state = Some(false);
                 true
             }
 
-            (0, 4, 0) => {
+            BaseInputLineActions::Ctrl('d') => {
                 self.set_radix(RadixType::DecRadix);
                 true
             }
-            (0, 24, 0) => {
+            BaseInputLineActions::Ctrl('h') => {
                 self.set_radix(RadixType::HexRadix);
                 true
             }
-            (0, 15, 0) => {
+            BaseInputLineActions::Ctrl('o') => {
                 self.set_radix(RadixType::OctRadix);
                 true
             }
@@ -235,30 +250,34 @@ impl FindInputLine {
 }
 
 impl InputLine for FindInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
+    fn input(&mut self, input: &Input, key: Key) -> bool {
+        if self.base.input(input, key) { return true }
 
-        match (emod, key, ch) {
-            (0, 13, 0) => {
+        let action = if let Some(action) = input.inputline_input(key) { action } else {
+            return false;
+        };
+
+        match action {
+            BaseInputLineActions::Ok => {
                 self.do_find();
                 // self.done_state = Some(true);
                 true
             }
-            (0, 27, 0) => {
+            BaseInputLineActions::Cancel => {
                 // self.done_state = Some(false);
                 self.on_cancel.signal(None);
                 true
             }
 
-            (0, 1, 0) => {
+            BaseInputLineActions::Ctrl('a') => {
                 self.set_search_data_type(DataType::AsciiStr);
                 true
             }
-            (0, 21, 0) => {
+            BaseInputLineActions::Ctrl('u') => {
                 self.set_search_data_type(DataType::UnicodeStr);
                 true
             }
-            (0, 24, 0) => {
+            BaseInputLineActions::Ctrl('h') => {
                 self.set_search_data_type(DataType::HexStr);
                 true
             }
@@ -291,15 +310,19 @@ impl PathInputLine {
 }
 
 impl InputLine for PathInputLine {
-    fn input(&mut self, emod: u8, key: u16, ch: u32) -> bool {
-        if self.base.input(emod, key, ch) { return true }
+    fn input(&mut self, input: &Input, key: Key) -> bool {
+        if self.base.input(input, key) { return true }
 
-        match (emod, key, ch) {
-            (0, 13, 0) => {
+        let action = if let Some(action) = input.inputline_input(key) { action } else {
+            return false;
+        };
+
+        match action {
+            BaseInputLineActions::Ok => {
                 self.on_done.signal(PathBuf::from(str::from_utf8(&self.base.data).unwrap()));
                 true
             }
-            (0, 27, 0) => {
+            BaseInputLineActions::Cancel => {
                 self.on_cancel.signal(None);
                 true
             }

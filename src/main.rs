@@ -4,7 +4,8 @@ extern crate gag;
 
 use std::env::args;
 use std::path::Path;
-use rustbox::{RustBox, Event};
+use rustbox::{RustBox, Event, InputMode, InitOptions};
+use rustbox::keyboard::Key;
 use std::default::Default;
 use gag::Hold;
 
@@ -26,7 +27,10 @@ fn main() {
 
     let hold = (Hold::stdout().unwrap(), Hold::stderr().unwrap());
 
-    let rb = RustBox::init(Default::default()).unwrap();
+    let rb = RustBox::init(InitOptions{
+        buffer_stderr: false,
+        input_mode: InputMode::Esc,
+    }).unwrap();
 
     edit.resize(rb.width() as i32, rb.height() as i32);
     edit.draw(&rb);
@@ -34,11 +38,12 @@ fn main() {
     rb.present();
     // tb::set_cursor(2, 0);
     loop {
-        let event = rb.poll_event(true).unwrap();
+        let event = rb.poll_event(false).unwrap();
         // println!("{:?}", event);
         match event {
-            Event::KeyEventRaw(0, 0, 0) => break,
-            Event::KeyEventRaw(m, k, c) => edit.input(m, k, c),
+            // This case is here, since we want to have a 'way ouy' till we fixed bugs
+            Event::KeyEvent(Some(Key::Char('\u{0}'))) => break,  /** This should be Ctrl-` */
+            Event::KeyEvent(Some(key)) => edit.input(key),
             Event::ResizeEvent(w, h) => { edit.resize(w, h) }
             _ => ()
         };
