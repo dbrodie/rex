@@ -113,7 +113,7 @@ impl HexEdit {
         self.recalculate();
     }
 
-    pub fn draw(&mut self, rb: &RustBox) {
+    pub fn draw_view(&mut self, rb: &RustBox) {
         let nibble_view_start = self.nibble_start;
         let byte_view_start = nibble_view_start + (self.nibble_width / 2) * 3;
 
@@ -208,6 +208,10 @@ impl HexEdit {
                 rb.set_cursor(byte_view_start + offset, row);
             }
         }
+    }
+
+    pub fn draw(&mut self, rb: &RustBox) {
+        self.draw_view(rb);
 
         match self.input_entry.as_mut() {
             Some(entry) => entry.draw(rb, Rect {
