@@ -140,6 +140,7 @@ impl HexEdit {
                 } else {
                     rb.print_style(0, row as usize, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
                 }
+                prev_in_selection = false;
             }
 
             let mut hex_str = [' ', ' '];
