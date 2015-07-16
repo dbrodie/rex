@@ -2,7 +2,7 @@ use std::str;
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
-use util::string_with_repeat;
+use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
 use rustbox::{RustBox};
@@ -130,11 +130,11 @@ impl HexEdit {
             .chain(extra_none.iter().map(|n| *n))
             .enumerate() {
 
-            let row = byte_i as isize / (self.nibble_width / 2);
+            let row = (byte_i as isize / (self.nibble_width / 2)) as usize;
             let offset = byte_i as isize % (self.nibble_width / 2);
             let byte_pos = byte_i as isize + self.data_offset / 2;
 
-            if offset == 0 {
+            if offset == 0 {  // It's a new row!
                 if self.nibble_start == 5 {
                     rb.print_style(0, row as usize, Style::Default, &format!("{:04X}", byte_pos));
                 } else {
@@ -164,52 +164,52 @@ impl HexEdit {
 
             let at_current_byte = byte_pos == (self.cursor_pos / 2);
 
-            let mut in_selection = false;
-            match self.selection_start {
-                Some(selection_pos) if selection_pos / 2 < self.cursor_pos / 2
-                    => in_selection =
-                           (selection_pos / 2 <= byte_pos) && (byte_pos <= self.cursor_pos / 2),
-                       Some(selection_pos) => in_selection = (self.cursor_pos / 2 <= byte_pos) &&
-                                                             (byte_pos <= selection_pos / 2),
-                                              None => ()
-            }
+            let in_selection = if let Some(selection_pos) = self.selection_start {
+                is_between(byte_pos, selection_pos / 2, self.cursor_pos / 2)
+            } else {
+                false
+            };
 
-            let nibble_view_pos = [
-                (nibble_view_start + (offset * 3)) as usize, row as usize
-            ];
+            let nibble_view_column = (nibble_view_start + (offset * 3)) as usize;
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
                 Style::Default
             };
 
-            rb.print_char_style(nibble_view_pos[0], nibble_view_pos[1] as usize, nibble_style,
+            rb.print_char_style(nibble_view_column, row, nibble_style,
                 hex_str[0]);
-            rb.print_char_style(nibble_view_pos[0]+1, nibble_view_pos[1] as usize, nibble_style,
+            rb.print_char_style(nibble_view_column + 1, row, nibble_style,
                 hex_str[1]);
             if prev_in_selection && in_selection {
-                rb.print_char_style(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, nibble_style,
+                rb.print_char_style(nibble_view_column - 1, row, nibble_style,
                     ' ');
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(nibble_view_pos[0] as isize + (self.cursor_pos & 1),
-                              nibble_view_pos[1] as isize);
+                rb.set_cursor(nibble_view_column as isize + (self.cursor_pos & 1),
+                              row as isize);
             };
 
-            prev_in_selection = in_selection;
+            // Now let's draw the byte winndow
 
+            // If we are at the current byte but the nibble view is active, we want to draw a
+            // "fake" cursor by dawing a selection square
             let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
                 Style::Default
             };
 
-            rb.print_char_style((byte_view_start + offset) as usize, row as usize, byte_style,
+            rb.print_char_style((byte_view_start + offset) as usize, row, byte_style,
                 byte_str);
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(byte_view_start + offset, row);
+                rb.set_cursor(byte_view_start + offset, row as isize);
             }
+
+            // Remember if we had a selection, so that we know for next char to "fill in" with
+            // selection in the nibble view
+            prev_in_selection = in_selection;
         }
     }
 

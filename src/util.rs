@@ -36,3 +36,8 @@ pub fn string_with_repeat(c: char, n: usize) -> String {
     let v: Vec<_> = repeat(c as u8).take(n).collect();
     String::from_utf8(v).unwrap()
 }
+
+pub fn is_between<N: PartialOrd>(num: N, a: N, b: N) -> bool {
+    let (smaller, larger) = if a < b { (a, b) } else { (b, a) };
+    (smaller <= num) && (num <= larger)
+}
