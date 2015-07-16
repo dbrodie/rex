@@ -182,13 +182,12 @@ impl HexEdit {
             };
 
             // Now let's draw the byte window
-
             let byte_char = if let Some(&byte) = maybe_byte {
                 let bc = byte as char;
                 if bc.is_ascii() && bc.is_alphanumeric() {
                     bc
                 } else {
-                    ' '
+                    '.'
                 }
             } else {
                 ' '
@@ -224,7 +223,7 @@ impl HexEdit {
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
             self.cursor_pos, self.selection_start, self.insert_mode);
-        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);        
+        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
     }
 
     pub fn draw(&mut self, rb: &RustBox) {
