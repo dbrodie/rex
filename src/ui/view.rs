@@ -214,31 +214,7 @@ impl HexEdit {
         }
     }
 
-    pub fn draw(&mut self, rb: &RustBox) {
-        self.draw_view(rb);
-
-        match self.input_entry.as_mut() {
-            Some(entry) => entry.draw(rb, Rect {
-                top: (rb.height() - 2) as isize,
-                bottom: (rb.height() - 1) as isize,
-                left: 0,
-                right: rb.width() as isize
-            },
-                                      true),
-            None => ()
-        };
-
-        match self.overlay.as_mut() {
-            Some(entry) => entry.draw(rb, Rect {
-                top: 0,
-                bottom: self.cur_height,
-                left: 0,
-                right: self.cur_width,
-            },
-                                      true),
-            None => ()
-        };
-
+    fn draw_statusbar(&mut self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
         match self.status_log.last() {
             Some(ref status_line) => rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line),
@@ -248,9 +224,31 @@ impl HexEdit {
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
             self.cursor_pos, self.selection_start, self.insert_mode);
-        // let lll = self.buffer.segment._internal_debug();
-        // let right_status = format!("clip = {}, vecs = {}", self.clipboard.is_some(), lll);
-        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
+        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);        
+    }
+
+    pub fn draw(&mut self, rb: &RustBox) {
+        self.draw_view(rb);
+
+        if let Some(entry) = self.input_entry.as_mut() {
+            entry.draw(rb, Rect {
+                top: (rb.height() - 2) as isize,
+                bottom: (rb.height() - 1) as isize,
+                left: 0,
+                right: rb.width() as isize
+            }, true);
+        }
+
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.draw(rb, Rect {
+                top: 0,
+                bottom: self.cur_height,
+                left: 0,
+                right: self.cur_width,
+            }, true);
+        }
+
+        self.draw_statusbar(rb);
     }
 
     fn status(&mut self, st: String) {
