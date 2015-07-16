@@ -114,8 +114,8 @@ impl HexEdit {
     }
 
     pub fn draw_view(&mut self, rb: &RustBox) {
-        let nibble_view_start = self.nibble_start;
-        let byte_view_start = nibble_view_start + (self.nibble_width / 2) * 3;
+        let nibble_view_start = self.nibble_start as usize;
+        let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
         let mut prev_in_selection = false;
 
@@ -130,36 +130,19 @@ impl HexEdit {
             .chain(extra_none.iter().map(|n| *n))
             .enumerate() {
 
-            let row = (byte_i as isize / (self.nibble_width / 2)) as usize;
-            let offset = byte_i as isize % (self.nibble_width / 2);
+            let row = byte_i / (self.nibble_width as usize / 2);
+            let column = byte_i % (self.nibble_width as usize / 2);
             let byte_pos = byte_i as isize + self.data_offset / 2;
 
-            if offset == 0 {  // It's a new row!
+            // It's a new row, let's draw the line numbers
+            if column == 0 {
                 if self.nibble_start == 5 {
-                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}", byte_pos));
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
                 } else {
-                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
                 }
+                // We want the selection draw to not go out of the editor view
                 prev_in_selection = false;
-            }
-
-            let mut hex_str = [' ', ' '];
-            let mut byte_str = '.';
-            match maybe_byte {
-                Some(&byte) => {
-                    let (char_0, char_1) = u8_to_hex(byte);
-                    hex_str[0] = char_0;
-                    hex_str[1] = char_1;
-                    let bc =  byte as char;
-                    if bc.is_ascii() && bc.is_alphanumeric() {
-                        byte_str = bc;
-                    }
-                }
-
-                // Then this is the last iteration so that insertion past the last byte works
-                None => {
-                    byte_str = ' ';
-                }
             }
 
             let at_current_byte = byte_pos == (self.cursor_pos / 2);
@@ -170,7 +153,14 @@ impl HexEdit {
                 false
             };
 
-            let nibble_view_column = (nibble_view_start + (offset * 3)) as usize;
+            // Now we draw the nibble view
+            let hex_chars = if let Some(&byte) = maybe_byte {
+                u8_to_hex(byte)
+            } else {
+                (' ', ' ')
+            };
+
+            let nibble_view_column = nibble_view_start + (column * 3);
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
@@ -178,9 +168,9 @@ impl HexEdit {
             };
 
             rb.print_char_style(nibble_view_column, row, nibble_style,
-                hex_str[0]);
+                hex_chars.0);
             rb.print_char_style(nibble_view_column + 1, row, nibble_style,
-                hex_str[1]);
+                hex_chars.1);
             if prev_in_selection && in_selection {
                 rb.print_char_style(nibble_view_column - 1, row, nibble_style,
                     ' ');
@@ -191,7 +181,18 @@ impl HexEdit {
                               row as isize);
             };
 
-            // Now let's draw the byte winndow
+            // Now let's draw the byte window
+
+            let byte_char = if let Some(&byte) = maybe_byte {
+                let bc = byte as char;
+                if bc.is_ascii() && bc.is_alphanumeric() {
+                    bc
+                } else {
+                    ' '
+                }
+            } else {
+                ' '
+            };
 
             // If we are at the current byte but the nibble view is active, we want to draw a
             // "fake" cursor by dawing a selection square
@@ -201,10 +202,10 @@ impl HexEdit {
                 Style::Default
             };
 
-            rb.print_char_style((byte_view_start + offset) as usize, row, byte_style,
-                byte_str);
+            rb.print_char_style(byte_view_start + column, row, byte_style,
+                byte_char);
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(byte_view_start + offset, row as isize);
+                rb.set_cursor((byte_view_start + column) as isize, row as isize);
             }
 
             // Remember if we had a selection, so that we know for next char to "fill in" with
