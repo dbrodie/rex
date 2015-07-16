@@ -142,22 +142,22 @@ impl HexEdit {
                 }
             }
 
-            let mut hex_str = [' ' as u8, ' ' as u8];
-            let mut byte_str = '.' as u8;
+            let mut hex_str = [' ', ' '];
+            let mut byte_str = '.';
             match maybe_byte {
                 Some(&byte) => {
                     let (char_0, char_1) = u8_to_hex(byte);
-                    hex_str[0] = char_0 as u8;
-                    hex_str[1] = char_1 as u8;
+                    hex_str[0] = char_0;
+                    hex_str[1] = char_1;
                     let bc =  byte as char;
                     if bc.is_ascii() && bc.is_alphanumeric() {
-                        byte_str = byte;
+                        byte_str = bc;
                     }
                 }
 
                 // Then this is the last iteration so that insertion past the last byte works
                 None => {
-                    byte_str = ' ' as u8;
+                    byte_str = ' ';
                 }
             }
 
@@ -182,11 +182,13 @@ impl HexEdit {
                 Style::Default
             };
 
-            rb.print_style(nibble_view_pos[0], nibble_view_pos[1] as usize, nibble_style,
-                str::from_utf8(&hex_str).unwrap());
+            rb.print_char_style(nibble_view_pos[0], nibble_view_pos[1] as usize, nibble_style,
+                hex_str[0]);
+            rb.print_char_style(nibble_view_pos[0]+1, nibble_view_pos[1] as usize, nibble_style,
+                hex_str[1]);
             if prev_in_selection && in_selection {
-                rb.print_style(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, nibble_style,
-                    " ");
+                rb.print_char_style(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, nibble_style,
+                    ' ');
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
@@ -202,8 +204,8 @@ impl HexEdit {
                 Style::Default
             };
 
-            rb.print_style((byte_view_start + offset) as usize, row as usize, byte_style,
-                str::from_utf8(&[byte_str]).unwrap());
+            rb.print_char_style((byte_view_start + offset) as usize, row as usize, byte_style,
+                byte_str);
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
                 rb.set_cursor(byte_view_start + offset, row);
             }
