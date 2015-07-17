@@ -215,10 +215,10 @@ impl HexEdit {
 
     fn draw_statusbar(&mut self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
-        match self.status_log.last() {
-            Some(ref status_line) => rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line),
-            None => (),
+        if let Some(ref status_line) = self.status_log.last() {
+            rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
         }
+
         let right_status = format!(
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
