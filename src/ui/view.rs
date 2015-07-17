@@ -113,7 +113,7 @@ impl HexEdit {
         self.recalculate();
     }
 
-    pub fn draw_view(&mut self, rb: &RustBox) {
+    pub fn draw_view(&self, rb: &RustBox) {
         let nibble_view_start = self.nibble_start as usize;
         let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
@@ -213,7 +213,7 @@ impl HexEdit {
         }
     }
 
-    fn draw_statusbar(&mut self, rb: &RustBox) {
+    fn draw_statusbar(&self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
         if let Some(ref status_line) = self.status_log.last() {
             rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
