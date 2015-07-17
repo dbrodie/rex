@@ -113,37 +113,18 @@ impl HexEdit {
         self.recalculate();
     }
 
-    pub fn draw_view(&self, rb: &RustBox) {
+    fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.nibble_start as usize;
         let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
+        // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
 
-        let extra_none: &[Option<&u8>] = &[None];
+        for (byte_i, maybe_byte) in iter {
 
-        let start_iter = (self.data_offset / 2) as usize;
-        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
-
-        for (byte_i, maybe_byte) in self.buffer.iter_range(start_iter, stop_iter)
-        // This is needed for the "fake" last element for insertion mode
-            .map(|x| Some(x))
-            .chain(extra_none.iter().map(|n| *n))
-            .enumerate() {
-
-            let row = byte_i / (self.nibble_width as usize / 2);
+            // let row = byte_i / (self.nibble_width as usize / 2);
             let column = byte_i % (self.nibble_width as usize / 2);
             let byte_pos = byte_i as isize + self.data_offset / 2;
-
-            // It's a new row, let's draw the line numbers
-            if column == 0 {
-                if self.nibble_start == 5 {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
-                } else {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-                }
-                // We want the selection draw to not go out of the editor view
-                prev_in_selection = false;
-            }
 
             let at_current_byte = byte_pos == (self.cursor_pos / 2);
 
@@ -210,6 +191,34 @@ impl HexEdit {
             // Remember if we had a selection, so that we know for next char to "fill in" with
             // selection in the nibble view
             prev_in_selection = in_selection;
+        }
+
+    }
+
+    pub fn draw_view(&self, rb: &RustBox) {
+        let extra_none: &[Option<&u8>] = &[None];
+
+        let start_iter = (self.data_offset / 2) as usize;
+        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
+
+        let row_count = (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
+
+        let mut itit_ = self.buffer.iter_range(start_iter, stop_iter)
+        // This is needed for the "fake" last element for insertion mode
+            .map(|x| Some(x))
+            .chain(extra_none.iter().map(|n| *n))
+            .enumerate().peekable();
+        let mut itit = itit_.by_ref();
+
+        for row in 0..row_count {
+            let byte_pos = itit.peek().unwrap().0 as isize + self.data_offset / 2;
+            if self.nibble_start == 5 {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
+            } else {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+            }
+
+            self.draw_line(rb, &mut itit.take((self.nibble_width as usize / 2)), row);
         }
     }
 
