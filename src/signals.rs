@@ -3,9 +3,8 @@
 macro_rules! ident_zip_signal {
     ( () ; ( $($id: ident,)* ) ; ( $($idr:ident: $tyr:ty,)* ) ) => {
         pub fn signal( &mut self, $($idr : $tyr,)* ) {
-            match self.s {
-                Some(ref mut f) => f($($idr),*),
-                None => ()
+            if let Some(ref mut f) = self.s {
+                f($($idr),*);
             }
         }
     };

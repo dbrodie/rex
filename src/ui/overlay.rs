@@ -60,12 +60,9 @@ impl OverlayText {
                 &string_with_repeat(' ', (area.right - area.left) as usize));
 
             // And draw the text if there is one
-            match opt_line {
-                Some(line) => {
-                    rb.print_style(area.left as usize, (area.top + i as isize) as usize,
-                        Style::Default, line);
-                }
-                None => ()
+            if let Some(line) = opt_line {
+                rb.print_style(area.left as usize, (area.top + i as isize) as usize,
+                    Style::Default, line);
             }
         }
 

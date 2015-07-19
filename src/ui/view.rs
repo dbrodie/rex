@@ -327,12 +327,9 @@ impl HexEdit {
     }
 
     fn undo(&mut self) {
-        match self.undo_stack.pop() {
-            Some(act) => {
-                let (begin, _) = self.do_action(act, false);
-                self.set_cursor(begin * 2);
-            }
-            None => ()
+        if let Some(act) = self.undo_stack.pop() {
+            let (begin, _) = self.do_action(act, false);
+            self.set_cursor(begin * 2);
         }
     }
 
@@ -377,9 +374,9 @@ impl HexEdit {
     }
 
     fn write_nibble_at_cursor(&mut self, c: u8) {
-        match self.selection_start {
-            Some(_) => self.delete_at_cursor(false),
-            None => ()
+        // Replace the text at the selection before writing the data
+        if self.selection_start.is_some() {
+            self.delete_at_cursor(false);
         }
 
         if self.insert_mode || self.cursor_at_end() {
@@ -419,9 +416,9 @@ impl HexEdit {
     }
 
     fn write_byte_at_cursor(&mut self, c: u8) {
-        match self.selection_start {
-            Some(_) => self.delete_at_cursor(false),
-            None => ()
+        // Replace the text at the selection before writing the data
+        if self.selection_start.is_some() {
+            self.delete_at_cursor(false);
         }
 
         let byte_offset = self.cursor_pos / 2;
@@ -443,7 +440,6 @@ impl HexEdit {
     }
 
     fn update_cursor(&mut self) {
-
         self.cursor_pos = cmp::max(self.cursor_pos, 0);
         self.cursor_pos = cmp::min(self.cursor_pos, self.data_size);
 
@@ -480,15 +476,12 @@ impl HexEdit {
             a => a
         };
 
-        match found_pos {
-            Some(pos) => {
-                self.status(format!("Found at {:?}", pos));
-                self.set_cursor((pos * 2) as isize);
-            }
-            None => {
-                self.status(format!("Nothing found!"));
-            }
-        };
+        if let Some(pos) = found_pos {
+            self.status(format!("Found at {:?}", pos));
+            self.set_cursor((pos * 2) as isize);
+        } else {
+            self.status(format!("Nothing found!"));
+        }
     }
 
     fn read_cursor_to_clipboard(&mut self) -> Option<usize> {
@@ -508,28 +501,25 @@ impl HexEdit {
     }
 
     fn edit_copy(&mut self) {
-        match self.read_cursor_to_clipboard() {
-            Some(data_len) => self.status(format!("Copied {}", data_len)),
-            None => ()
+        if let Some(data_len) = self.read_cursor_to_clipboard() {
+             self.status(format!("Copied {}", data_len));
         }
     }
 
     fn edit_cut(&mut self) {
-        match self.read_cursor_to_clipboard() {
-            Some(data_len) => {
-                self.delete_at_cursor(false);
-                self.status(format!("Cut {}", data_len));
-            }
-            None => ()
+        if let Some(data_len) = self.read_cursor_to_clipboard() {
+             self.delete_at_cursor(false);
+            self.status(format!("Cut {}", data_len));
         }
     }
 
     fn edit_paste(&mut self) {
         let data;
-        match self.clipboard {
-            Some(ref d) => { data = d.clone(); },
-            None => { return; }
-        };
+        if let Some(ref d) = self.clipboard {
+            data = d.clone();
+        } else {
+            return;
+        }
 
         let pos_div2 = self.cursor_pos / 2;
         self.do_action(UndoAction::Insert(pos_div2, data), true);
@@ -575,12 +565,11 @@ impl HexEdit {
 
             // Hex input for nibble view
             HexEditActions::Edit(ch) if self.nibble_active => {
-                match ch.to_digit(16) {
-                    Some(val) => {
-                        self.write_nibble_at_cursor(val as u8);
-                        self.move_cursor(1);
-                    }
-                    None => ()  // TODO: Show error?
+                if let Some(val) = ch.to_digit(16) {
+                    self.write_nibble_at_cursor(val as u8);
+                    self.move_cursor(1);
+                } else {
+                    // TODO: Show error?
                 }
             },
 
@@ -623,10 +612,9 @@ impl HexEdit {
         let ref sr = self.signal_receiver.as_mut().unwrap();
         let mut ot = OverlayText::with_text(help_text.to_string());
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            match opt_msg {
-                Some(ref msg) => obj.status(msg.clone()),
-                None => ()
-            };
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
             obj.overlay = None;
         }));
         self.overlay = Some(ot);
@@ -642,10 +630,9 @@ impl HexEdit {
         }));
 
         gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            match opt_msg {
-                Some(ref msg) => obj.status(msg.clone()),
-                None => ()
-            };
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
             obj.input_entry = None;
         }));
 
@@ -661,10 +648,9 @@ impl HexEdit {
         }));
 
         find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            match opt_msg {
-                Some(ref msg) => obj.status(msg.clone()),
-                None => ()
-            };
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
             obj.input_entry = None;
         }));
 
@@ -680,10 +666,9 @@ impl HexEdit {
         }));
 
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            match opt_msg {
-                Some(ref msg) => obj.status(msg.clone()),
-                None => ()
-            };
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
             obj.input_entry = None;
         }));
 
@@ -699,10 +684,9 @@ impl HexEdit {
         }));
 
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            match opt_msg {
-                Some(ref msg) => obj.status(msg.clone()),
-                None => ()
-            };
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
             obj.input_entry = None;
         }));
 
@@ -718,20 +702,14 @@ impl HexEdit {
     pub fn input(&mut self, key: Key) {
         self.process_msgs();
 
-        match self.overlay {
-            Some(ref mut overlay) => {
-                overlay.input(&self.input, key);
-                return;
-            }
-            None => ()
+        if let Some(ref mut overlay) = self.overlay {
+            overlay.input(&self.input, key);
+            return;
         }
 
-        match self.input_entry {
-            Some(ref mut input_entry) => {
-                input_entry.input(&self.input, key);
-                return;
-            }
-            None => ()
+        if let Some(ref mut input_entry) = self.input_entry {
+            input_entry.input(&self.input, key);
+            return;
         }
 
         self.view_input(key);
