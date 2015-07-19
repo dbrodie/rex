@@ -49,11 +49,6 @@ struct Index {
     inner: usize,
 }
 
-struct Indexes<'a> {
-    seg: &'a Segment,
-    index: Index,
-}
-
 pub struct Items<'a> {
     seg: &'a Segment,
     index: Index,
@@ -154,14 +149,6 @@ impl Segment {
             seg: self,
             index: idx,
             num_elem: Some(to - from),
-        }
-    }
-
-    fn iter_index<'a>(&'a self, from: usize) -> Indexes<'a> {
-        let index = self.pos_to_index(from, false);
-        Indexes {
-            seg: self,
-            index: index,
         }
     }
 
@@ -277,24 +264,6 @@ impl ops::IndexMut<usize> for Segment {
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.vecs.fmt(f)
-    }
-}
-
-impl<'a> Iterator for Indexes<'a> {
-    type Item = Index;
-    fn next(&mut self) -> Option<Index> {
-        if self.index.outer >= self.seg.vecs.len() {
-            return None;
-        }
-
-        let res = self.index;
-
-        self.index.inner += 1;
-        if self.index.inner >= self.seg.vecs[self.index.outer].len() {
-            self.index.inner = 0;
-            self.index.outer += 1;
-        }
-        Some(res)
     }
 }
 
