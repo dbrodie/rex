@@ -2,7 +2,7 @@ use std::str;
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
-use util::string_with_repeat;
+use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
 use rustbox::{RustBox};
@@ -113,136 +113,147 @@ impl HexEdit {
         self.recalculate();
     }
 
-    pub fn draw(&mut self, rb: &RustBox) {
-        let nibble_view_start = self.nibble_start;
-        let byte_view_start = nibble_view_start + (self.nibble_width / 2) * 3;
+    fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
+        let nibble_view_start = self.nibble_start as usize;
+        let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
+        // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
 
-        let extra_none: &[Option<&u8>] = &[None];
+        for (row_offset, (byte_pos, maybe_byte)) in iter.enumerate() {
+            let at_current_byte = byte_pos as isize == (self.cursor_pos / 2);
 
-        let start_iter = (self.data_offset / 2) as usize;
-        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
+            let in_selection = if let Some(selection_pos) = self.selection_start {
+                is_between(byte_pos as isize, selection_pos / 2, self.cursor_pos / 2)
+            } else {
+                false
+            };
 
-        for (byte_i, maybe_byte) in self.buffer.iter_range(start_iter, stop_iter)
-        // This is needed for the "fake" last element for insertion mode
-            .map(|x| Some(x))
-            .chain(extra_none.iter().map(|n| *n))
-            .enumerate() {
+            // Now we draw the nibble view
+            let hex_chars = if let Some(&byte) = maybe_byte {
+                u8_to_hex(byte)
+            } else {
+                (' ', ' ')
+            };
 
-            let row = byte_i as isize / (self.nibble_width / 2);
-            let offset = byte_i as isize % (self.nibble_width / 2);
-            let byte_pos = byte_i as isize + self.data_offset / 2;
-
-            if offset == 0 {
-                if self.nibble_start == 5 {
-                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}", byte_pos));
-                } else {
-                    rb.print_style(0, row as usize, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-                }
-            }
-
-            let mut hex_str = [' ' as u8, ' ' as u8];
-            let mut byte_str = '.' as u8;
-            match maybe_byte {
-                Some(&byte) => {
-                    let (char_0, char_1) = u8_to_hex(byte);
-                    hex_str[0] = char_0 as u8;
-                    hex_str[1] = char_1 as u8;
-                    let bc =  byte as char;
-                    if bc.is_ascii() && bc.is_alphanumeric() {
-                        byte_str = byte;
-                    }
-                }
-
-                // Then this is the last iteration so that insertion past the last byte works
-                None => {
-                    byte_str = ' ' as u8;
-                }
-            }
-
-            let at_current_byte = byte_pos == (self.cursor_pos / 2);
-
-            let mut in_selection = false;
-            match self.selection_start {
-                Some(selection_pos) if selection_pos / 2 < self.cursor_pos / 2
-                    => in_selection =
-                           (selection_pos / 2 <= byte_pos) && (byte_pos <= self.cursor_pos / 2),
-                       Some(selection_pos) => in_selection = (self.cursor_pos / 2 <= byte_pos) &&
-                                                             (byte_pos <= selection_pos / 2),
-                                              None => ()
-            }
-
-            let nibble_view_pos = [
-                (nibble_view_start + (offset * 3)) as usize, row as usize
-            ];
+            let nibble_view_column = nibble_view_start + (row_offset * 3);
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
                 Style::Default
             };
 
-            rb.print_style(nibble_view_pos[0], nibble_view_pos[1] as usize, nibble_style,
-                str::from_utf8(&hex_str).unwrap());
+            rb.print_char_style(nibble_view_column, row, nibble_style,
+                hex_chars.0);
+            rb.print_char_style(nibble_view_column + 1, row, nibble_style,
+                hex_chars.1);
             if prev_in_selection && in_selection {
-                rb.print_style(nibble_view_pos[0] - 1, nibble_view_pos[1] as usize, nibble_style,
-                    " ");
+                rb.print_char_style(nibble_view_column - 1, row, nibble_style,
+                    ' ');
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(nibble_view_pos[0] as isize + (self.cursor_pos & 1),
-                              nibble_view_pos[1] as isize);
+                rb.set_cursor(nibble_view_column as isize + (self.cursor_pos & 1),
+                              row as isize);
             };
 
-            prev_in_selection = in_selection;
+            // Now let's draw the byte window
+            let byte_char = if let Some(&byte) = maybe_byte {
+                let bc = byte as char;
+                if bc.is_ascii() && bc.is_alphanumeric() {
+                    bc
+                } else {
+                    '.'
+                }
+            } else {
+                ' '
+            };
 
+            // If we are at the current byte but the nibble view is active, we want to draw a
+            // "fake" cursor by dawing a selection square
             let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
                 Style::Default
             };
 
-            rb.print_style((byte_view_start + offset) as usize, row as usize, byte_style,
-                str::from_utf8(&[byte_str]).unwrap());
+            rb.print_char_style(byte_view_start + row_offset, row, byte_style,
+                byte_char);
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(byte_view_start + offset, row);
+                rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
             }
+
+            // Remember if we had a selection, so that we know for next char to "fill in" with
+            // selection in the nibble view
+            prev_in_selection = in_selection;
         }
 
-        match self.input_entry.as_mut() {
-            Some(entry) => entry.draw(rb, Rect {
-                top: (rb.height() - 2) as isize,
-                bottom: (rb.height() - 1) as isize,
-                left: 0,
-                right: rb.width() as isize
-            },
-                                      true),
-            None => ()
-        };
+    }
 
-        match self.overlay.as_mut() {
-            Some(entry) => entry.draw(rb, Rect {
-                top: 0,
-                bottom: self.cur_height,
-                left: 0,
-                right: self.cur_width,
-            },
-                                      true),
-            None => ()
-        };
+    pub fn draw_view(&self, rb: &RustBox) {
+        let extra_none: &[Option<&u8>] = &[None];
 
+        let start_iter = (self.data_offset / 2) as usize;
+        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
+
+        let row_count = (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
+
+        // We need this so that the iterator is stayed alive for the by_ref later
+        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter, stop_iter)
+        // This is needed for the "fake" last element for insertion mode
+            .map(|x| Some(x))
+            .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None
+            .peekable();
+        // We need to take the iterator by ref so we can take from it later without transfering ownership
+        let mut itit = itit_.by_ref();
+
+        for row in 0..row_count {
+            let byte_pos = itit.peek().unwrap().0 as isize;
+            if self.nibble_start == 5 {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
+            } else {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+            }
+
+            self.draw_line(rb, &mut itit.take((self.nibble_width as usize / 2)), row);
+        }
+    }
+
+    fn draw_statusbar(&self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
-        match self.status_log.last() {
-            Some(ref status_line) => rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line),
-            None => (),
+        if let Some(ref status_line) = self.status_log.last() {
+            rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
         }
+
         let right_status = format!(
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
             self.cursor_pos, self.selection_start, self.insert_mode);
-        // let lll = self.buffer.segment._internal_debug();
-        // let right_status = format!("clip = {}, vecs = {}", self.clipboard.is_some(), lll);
         rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
+    }
+
+    pub fn draw(&mut self, rb: &RustBox) {
+        self.draw_view(rb);
+
+        if let Some(entry) = self.input_entry.as_mut() {
+            entry.draw(rb, Rect {
+                top: (rb.height() - 2) as isize,
+                bottom: (rb.height() - 1) as isize,
+                left: 0,
+                right: rb.width() as isize
+            }, true);
+        }
+
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.draw(rb, Rect {
+                top: 0,
+                bottom: self.cur_height,
+                left: 0,
+                right: self.cur_width,
+            }, true);
+        }
+
+        self.draw_statusbar(rb);
     }
 
     fn status(&mut self, st: String) {
