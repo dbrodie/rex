@@ -120,16 +120,11 @@ impl HexEdit {
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
 
-        for (byte_i, maybe_byte) in iter {
-
-            // let row = byte_i / (self.nibble_width as usize / 2);
-            let column = byte_i % (self.nibble_width as usize / 2);
-            let byte_pos = byte_i as isize + self.data_offset / 2;
-
-            let at_current_byte = byte_pos == (self.cursor_pos / 2);
+        for (row_offset, (byte_pos, maybe_byte)) in iter.enumerate() {
+            let at_current_byte = byte_pos as isize == (self.cursor_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                is_between(byte_pos, selection_pos / 2, self.cursor_pos / 2)
+                is_between(byte_pos as isize, selection_pos / 2, self.cursor_pos / 2)
             } else {
                 false
             };
@@ -141,7 +136,7 @@ impl HexEdit {
                 (' ', ' ')
             };
 
-            let nibble_view_column = nibble_view_start + (column * 3);
+            let nibble_view_column = nibble_view_start + (row_offset * 3);
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
@@ -182,10 +177,10 @@ impl HexEdit {
                 Style::Default
             };
 
-            rb.print_char_style(byte_view_start + column, row, byte_style,
+            rb.print_char_style(byte_view_start + row_offset, row, byte_style,
                 byte_char);
             if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor((byte_view_start + column) as isize, row as isize);
+                rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
             }
 
             // Remember if we had a selection, so that we know for next char to "fill in" with
@@ -203,15 +198,17 @@ impl HexEdit {
 
         let row_count = (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
 
-        let mut itit_ = self.buffer.iter_range(start_iter, stop_iter)
+        // We need this so that the iterator is stayed alive for the by_ref later
+        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter, stop_iter)
         // This is needed for the "fake" last element for insertion mode
             .map(|x| Some(x))
-            .chain(extra_none.iter().map(|n| *n))
-            .enumerate().peekable();
+            .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None
+            .peekable();
+        // We need to take the iterator by ref so we can take from it later without transfering ownership
         let mut itit = itit_.by_ref();
 
         for row in 0..row_count {
-            let byte_pos = itit.peek().unwrap().0 as isize + self.data_offset / 2;
+            let byte_pos = itit.peek().unwrap().0 as isize;
             if self.nibble_start == 5 {
                 rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
             } else {
