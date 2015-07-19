@@ -304,6 +304,12 @@ impl<'a> Iterator for Items<'a> {
         if self.index.outer >= self.seg.vecs.len() {
             return None;
         }
+        if let Some(ref mut num_elem) = self.num_elem {
+            if *num_elem <= 0 {
+                return None;
+            }
+            *num_elem -= 1;
+        }
 
         let elem = {
             let vv = &self.seg.vecs[self.index.outer];
@@ -325,6 +331,12 @@ impl<'a> Iterator for MutItems<'a> {
     fn next(&mut self) -> Option<&'a mut u8> {
         if self.index.outer >= self.seg.vecs.len() {
             return None;
+        }
+        if let Some(ref mut num_elem) = self.num_elem {
+            if *num_elem <= 0 {
+                return None;
+            }
+            *num_elem -= 1;
         }
 
         let elem_raw: *mut u8 = {
