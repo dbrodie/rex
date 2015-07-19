@@ -199,7 +199,7 @@ impl HexEdit {
         let row_count = (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
 
         // We need this so that the iterator is stayed alive for the by_ref later
-        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter, stop_iter)
+        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter..stop_iter)
         // This is needed for the "fake" last element for insertion mode
             .map(|x| Some(x))
             .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None

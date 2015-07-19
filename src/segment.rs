@@ -1,7 +1,42 @@
 use std::fmt;
 use std::ops;
+use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 
 use super::util;
+
+// This is useful til the RangeArgument is made stable
+trait FromRange {
+    #[inline(always)]
+    fn from_range(&self, seg: &Segment) -> (usize, usize);
+}
+
+impl FromRange for RangeFull {
+    #[inline(always)]
+    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+        return (0, seg.len());
+    }
+}
+
+impl FromRange for Range<usize> {
+    #[inline(always)]
+    fn from_range(&self, _: &Segment) -> (usize, usize) {
+        return (self.start, self.end);
+    }
+}
+
+impl FromRange for RangeFrom<usize> {
+    #[inline(always)]
+    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+        return (self.start, seg.len());
+    }
+}
+
+impl FromRange for RangeTo<usize> {
+    #[inline(always)]
+    fn from_range(&self, _: &Segment) -> (usize, usize) {
+        return (0, self.end);
+    }
+}
 
 pub struct Segment {
     vecs: Vec<Vec<u8>>,
@@ -94,7 +129,8 @@ impl Segment {
         panic!("Position {} is out of bounds", pos);
     }
 
-    pub fn iter_range<'a>(&'a self, from: usize, to: usize) -> Items<'a> {
+    pub fn iter_range<'a, R: FromRange>(&'a self, range: R) -> Items<'a> {
+        let (from, to) = range.from_range(self);
         if to < from {
             panic!("to ({}) is smaller than from ({})!", to, from);
         }
@@ -107,7 +143,8 @@ impl Segment {
         }
     }
 
-    pub fn mut_iter_range<'a>(&'a mut self, from: usize, to: usize) -> MutItems<'a> {
+    pub fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
+        let (from, to) = range.from_range(self);
         if to < from {
             panic!("to ({}) is smaller than from ({})!", to, from);
         }
@@ -214,7 +251,7 @@ impl Segment {
         let len = self.len();
 
         for i in from..self.len() {
-            if util::iter_equals(self.iter_range(i, len), needle.iter()) {
+            if util::iter_equals(self.iter_range(i..len), needle.iter()) {
                 return Some(i);
             }
         }
