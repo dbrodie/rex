@@ -230,8 +230,8 @@ impl Segment {
         res
     }
 
-    pub fn find_slice(&self, needle: &[u8]) {
-        self.find_slice_from(0, needle);
+    pub fn find_slice(&self, needle: &[u8]) -> Option<usize> {
+        self.find_slice_from(0, needle)
     }
 
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
