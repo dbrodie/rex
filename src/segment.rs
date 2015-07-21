@@ -172,9 +172,9 @@ impl Segment {
         let page_start_idx = (index.inner / MIN_BLOCK_SIZE) * MIN_BLOCK_SIZE;
         if page_start_idx == 0 {
             if self.vecs[index.outer].len() > MAX_BLOCK_SIZE {
-                let insert_vec: Vec < _ >= self.vecs[index.outer][MIN_BLOCK_SIZE..].into(); self
-                                           .vecs.insert(index.outer + 1, insert_vec); self
-                                           .vecs[index.outer].truncate(MIN_BLOCK_SIZE);
+                let insert_vec: Vec < _ >= self.vecs[index.outer][MIN_BLOCK_SIZE..].into();
+                self.vecs.insert(index.outer + 1, insert_vec);
+                self.vecs[index.outer].truncate(MIN_BLOCK_SIZE);
             }
 
             return index;
@@ -205,6 +205,7 @@ impl Segment {
         self.calc_len();
     }
 
+    // TODO: Convert to drain when that settles
     pub fn move_out_slice(&mut self, start_offset: usize, end_offset: usize) -> Vec<u8> {
         assert!(start_offset <= end_offset);
         let mut res = Vec::new();
