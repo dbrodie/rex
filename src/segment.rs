@@ -236,10 +236,8 @@ impl Segment {
     }
 
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
-        let len = self.len();
-
         for i in from..self.len() {
-            if util::iter_equals(self.iter_range(i..len), needle.iter()) {
+            if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
                 return Some(i);
             }
         }
