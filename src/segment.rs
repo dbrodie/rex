@@ -338,7 +338,33 @@ impl<'a> Iterator for Slices<'a> {
 }
 
 #[test]
-fn test_segment() {
-    let mut s = Segment::from_slice(&[1, 2, 3, 4]);
-    s.insert_slice(0, &[7, 7, 7, 7, 7]);
+fn test_small_segment() {
+    let size = 1024;
+    let mut seg = Segment::from_vec(vec![1, 2, 3, 4, 5]);
+    assert_eq!(Some(4), seg.find_slice(&[5]));
+
+    let seg_len = seg.len();
+    seg.insert(seg_len/2, &vec![1 as u8; size]);
+
+    assert_eq!(Some(size + 4), seg.find_slice(&[5]));
+}
+
+#[test]
+fn test_large_segment() {
+    let big_size = 4*1024*1024;
+    let small_size = 1024;
+    let mut seg = Segment::from_vec(vec![0; big_size]);
+
+    seg.insert(big_size/2, &vec![1 as u8; small_size]);
+
+    assert_eq!(Some(big_size/2 -1), seg.find_slice(&[0, 1]));
+
+    // Make sure we actually tested a "split" version
+    let seg_lengths = seg.get_lengths();
+    assert_eq!(2, seg_lengths.len());
+    let index = seg_lengths[0];
+    let sentinal = 100;
+    seg[index] = sentinal;
+    seg[index+1] = sentinal +1;
+    assert_eq!(Some(index), seg.find_slice(&[sentinal, sentinal+1]));
 }
