@@ -70,9 +70,6 @@ static MIN_BLOCK_SIZE: usize = 1024 * 1024;
 static MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 
 impl Segment {
-    pub fn _internal_debug(&self) -> Vec<usize> {
-        self.vecs.iter().map(|v| v.len()).collect::<Vec<usize>>()
-    }
     pub fn new() -> Segment {
         Segment {
             vecs: Vec::new(),
@@ -242,6 +239,11 @@ impl Segment {
             }
         }
         None
+    }
+
+    #[cfg(test)]
+    fn get_lengths(&self) -> Vec<usize> {
+        self.vecs.iter().map(|v| v.len()).collect::<Vec<usize>>()
     }
 }
 
