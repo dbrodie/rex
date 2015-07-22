@@ -249,8 +249,8 @@ impl Segment {
     /// Find a slice from a certain index and onward
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
         for i in from..self.len() {
-                return Some(i);
             if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
+                return Some(i);
             }
         }
         None
