@@ -30,13 +30,13 @@ impl Buffer for Segment {
     }
 
     fn write(&mut self, offset: usize, val: &[u8]) {
-        for (s, d) in val.iter().zip(self.mut_iter_range(offset, offset + val.len())) {
+        for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
             *d = s.clone();
         }
     }
 
     fn read(&self, offset: usize, len: usize) -> Vec<u8> {
-        self.iter_range(offset, offset + len).map(|x| *x).collect::<Vec<u8>>()
+        self.iter_range(offset..(offset + len)).map(|x| *x).collect::<Vec<u8>>()
     }
 
     fn find_from(&self, offset: usize, needle: &[u8]) -> Option<usize> {
