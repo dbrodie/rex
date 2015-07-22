@@ -70,12 +70,15 @@ static MIN_BLOCK_SIZE: usize = 1024 * 1024;
 static MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 
 impl Segment {
+    /// Create a new, empty segment
     pub fn new() -> Segment {
         Segment {
             vecs: Vec::new(),
             length: 0,
         }
     }
+
+    /// Create a segment by consuming a vec as the initial data vector
     pub fn from_vec(values: Vec<u8>) -> Segment {
         let len = values.len();
         Segment {
@@ -84,6 +87,7 @@ impl Segment {
         }
     }
 
+    /// Create a segment by copying in values from a slice
     pub fn from_slice(values: &[u8]) -> Segment {
         Segment {
             vecs: vec!(values.into()),
@@ -91,10 +95,12 @@ impl Segment {
         }
     }
 
+    /// Return the length of the segment
     pub fn len(&self) -> usize {
         self.length
     }
 
+    /// Update the saved length value so that the len func will be -O(1)
     fn calc_len(&mut self) {
         self.length = 0;
         for len in self.vecs.iter().map(|v| v.len()) {
@@ -102,6 +108,7 @@ impl Segment {
         }
     }
 
+    /// Convert a global pos to a locall index
     fn pos_to_index(&self, pos: usize, for_insert: bool) -> Index {
         if pos == 0 {
             return Index { outer: 0, inner: 0 };
@@ -121,6 +128,7 @@ impl Segment {
         panic!("Position {} is out of bounds", pos);
     }
 
+    /// Give an iterator over a given range
     pub fn iter_range<'a, R: FromRange>(&'a self, range: R) -> Items<'a> {
         let (from, to) = range.from_range(self);
         if to < from {
@@ -135,6 +143,7 @@ impl Segment {
         }
     }
 
+    /// Give a mutable iterator over a given range
     pub fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
         let (from, to) = range.from_range(self);
         if to < from {
@@ -149,6 +158,8 @@ impl Segment {
         }
     }
 
+    /// Provide an iterator over continuous meory slices
+    /// This is useful for doing an efficient save to disk
     pub fn iter_slices<'a>(&'a self) -> Slices<'a> {
         Slices {
             seg: self,
@@ -156,8 +167,8 @@ impl Segment {
         }
     }
 
+    /// Prepare an index for future text insertion, splitting/merging big/small sections respectively
     fn prepare_insert(&mut self, index: Index) -> Index {
-        // TODO: Get self.vecs.get(index.outer) into a local variable without ruining lifetimes?
         if index.outer >= self.vecs.len() {
             self.vecs.push(Vec::new());
         }
@@ -186,6 +197,7 @@ impl Segment {
         }
     }
 
+    /// insert all values from a slice into the segment
     pub fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
@@ -202,8 +214,9 @@ impl Segment {
         self.calc_len();
     }
 
-    // TODO: Convert to drain when that settles
+    /// Moves data between start_ & end_offset out of the segment
     pub fn move_out_slice(&mut self, start_offset: usize, end_offset: usize) -> Vec<u8> {
+        // TODO: Convert to drain when that settles
         assert!(start_offset <= end_offset);
         let mut res = Vec::new();
         let mut index = self.pos_to_index(start_offset, false);
@@ -228,14 +241,16 @@ impl Segment {
         res
     }
 
+    /// Find a slice inside the segment
     pub fn find_slice(&self, needle: &[u8]) -> Option<usize> {
         self.find_slice_from(0, needle)
     }
 
+    /// Find a slice from a certain index and onward
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
         for i in from..self.len() {
-            if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
                 return Some(i);
+            if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
             }
         }
         None
