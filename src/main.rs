@@ -38,7 +38,7 @@ fn main() {
         let event = rb.poll_event(false).unwrap();
         match event {
             // This case is here, since we want to have a 'way ouy' till we fixed bugs
-            Event::KeyEvent(Some(Key::Char('\u{0}'))) => break,  /** This should be Ctrl-` */
+            Event::KeyEvent(Some(Key::Ctrl('q'))) => break,
             Event::KeyEvent(Some(key)) => edit.input(key),
             Event::ResizeEvent(w, h) => { edit.resize(w, h) }
             _ => ()

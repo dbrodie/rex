@@ -6,7 +6,7 @@ Arrows, PageUp/Down, Home/End - Move around as you would expect
 
 General:
 C-? - Help (this screen)
-C-` - Quit
+C-Q - Quit
 C-E - Edit file
 C-W - Write a file
 
@@ -22,5 +22,3 @@ C-F - Find text/bytes
 Selection:
 C-S - Toggle selection mode
 C-X/C/V - Cut/Copy/Paste respectively, as you would expect
-
-
