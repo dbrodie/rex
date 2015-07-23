@@ -34,7 +34,10 @@ impl Input {
             Key::Ctrl('e') => Some(HexEditActions::AskOpen),
             Key::Ctrl('w') => Some(HexEditActions::AskSave),
 
-            _ => None,
+            k @ _=> {
+                println!("Unknown key {:?}", k);
+                None
+            }
         }
     }
 
