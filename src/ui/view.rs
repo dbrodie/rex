@@ -44,6 +44,7 @@ pub enum HexEditActions {
     ToggleInsert,
     ToggleSelecion,
     HelpView,
+    LogView,
     AskGoto,
     AskFind,
     AskOpen,
@@ -591,6 +592,7 @@ impl HexEdit {
             },
 
             HexEditActions::HelpView => self.start_help(),
+            HexEditActions::LogView => self.start_logview(),
 
             HexEditActions::ToggleInsert => self.toggle_insert_mode(),
 
@@ -611,6 +613,19 @@ impl HexEdit {
         let help_text = include_str!("Help.txt");
         let ref sr = self.signal_receiver.as_mut().unwrap();
         let mut ot = OverlayText::with_text(help_text.to_string());
+        ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            }
+            obj.overlay = None;
+        }));
+        self.overlay = Some(ot);
+    }
+
+    fn start_logview(&mut self) {
+        let logs = self.status_log.clone();
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let mut ot = OverlayText::with_logs(logs);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
