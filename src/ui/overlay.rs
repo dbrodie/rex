@@ -1,5 +1,7 @@
 use std::iter;
 use std::cmp;
+use std::str::Lines;
+use std::slice::Iter;
 use util::string_with_repeat;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
@@ -8,19 +10,57 @@ use super::common::{Rect, Canceled};
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 
+enum ToLinesIter<'a> {
+    StringLines(Lines<'a>),
+    SliceLines(Iter<'a, String>)
+}
+
+pub trait ToLines {
+    fn to_lines<'a>(&'a self) -> ToLinesIter<'a>;
+}
+
+impl ToLines for String {
+    fn to_lines<'a>(&'a self) -> ToLinesIter<'a> {
+        ToLinesIter::StringLines(self.lines())
+    }
+}
+
+impl ToLines for Vec<String> {
+    fn to_lines<'a>(&'a self) -> ToLinesIter<'a> {
+        ToLinesIter::SliceLines(self.iter())
+    }
+}
+
+impl<'a> Iterator for ToLinesIter<'a> {
+    type Item = &'a str;
+    fn next(&mut self) -> Option<&'a str> {
+        match *self {
+            ToLinesIter::StringLines(ref mut lines) => lines.next(),
+            ToLinesIter::SliceLines(ref mut lines) => lines.next().map(|x| &x[..]),
+        }
+    }
+}
+
 pub enum OverlayActions {
     Cancel,
 }
 
 pub struct OverlayText {
-    text: String,
+    text: Box<ToLines>,
     pub on_cancel: Canceled,
 }
 
 impl OverlayText {
     pub fn with_text(text: String) -> OverlayText {
         OverlayText {
-            text: text,
+            text: Box::new(text),
+            on_cancel: Default::default(),
+        }
+    }
+
+    pub fn with_logs(text: Vec<String>) -> OverlayText {
+        OverlayText {
+            text: Box::new(text),
             on_cancel: Default::default(),
         }
     }
@@ -40,7 +80,7 @@ impl OverlayText {
     pub fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
         let iter =
-            self.text.lines()
+            self.text.to_lines()
                 .map(
                     // Chomp the width of each line
                     |line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize)])
