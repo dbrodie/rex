@@ -612,7 +612,7 @@ impl HexEdit {
     fn start_help(&mut self) {
         let help_text = include_str!("Help.txt");
         let ref sr = self.signal_receiver.as_mut().unwrap();
-        let mut ot = OverlayText::with_text(help_text.to_string());
+        let mut ot = OverlayText::with_text(help_text.to_string(), false);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
@@ -625,7 +625,7 @@ impl HexEdit {
     fn start_logview(&mut self) {
         let logs = self.status_log.clone();
         let ref sr = self.signal_receiver.as_mut().unwrap();
-        let mut ot = OverlayText::with_logs(logs);
+        let mut ot = OverlayText::with_logs(logs, true);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());

@@ -2,7 +2,7 @@ use std::iter;
 use std::cmp;
 use std::str::Lines;
 use std::slice::Iter;
-use util::string_with_repeat;
+use util::{string_with_repeat, IteratorOptionalExt};
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -41,26 +41,38 @@ impl<'a> Iterator for ToLinesIter<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for ToLinesIter<'a> {
+    fn next_back(&mut self) -> Option<&'a str> {
+        match *self {
+            ToLinesIter::StringLines(ref mut lines) => lines.next_back(),
+            ToLinesIter::SliceLines(ref mut lines) => lines.next_back().map(|x| &x[..]),
+        }
+    }
+}
+
 pub enum OverlayActions {
     Cancel,
 }
 
 pub struct OverlayText {
     text: Box<ToLines>,
+    reverse: bool,
     pub on_cancel: Canceled,
 }
 
 impl OverlayText {
-    pub fn with_text(text: String) -> OverlayText {
+    pub fn with_text(text: String, rev: bool) -> OverlayText {
         OverlayText {
             text: Box::new(text),
+            reverse: rev,
             on_cancel: Default::default(),
         }
     }
 
-    pub fn with_logs(text: Vec<String>) -> OverlayText {
+    pub fn with_logs(text: Vec<String>, rev: bool) -> OverlayText {
         OverlayText {
             text: Box::new(text),
+            reverse: rev,
             on_cancel: Default::default(),
         }
     }
@@ -79,9 +91,7 @@ impl OverlayText {
 
     pub fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
-        let iter =
-            self.text.to_lines()
-                .map(
+        let mut iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
                     // Chomp the width of each line
                     |line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize)])
                     // |line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
