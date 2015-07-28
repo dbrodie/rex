@@ -41,3 +41,37 @@ pub fn is_between<N: PartialOrd>(num: N, a: N, b: N) -> bool {
     let (smaller, larger) = if a < b { (a, b) } else { (b, a) };
     (smaller <= num) && (num <= larger)
 }
+
+pub enum OptionalIter<L, R> {
+    TrueIter(L),
+    FalseIter(R)
+}
+
+impl<L, R, A> Iterator for OptionalIter<L, R> where 
+    L: Iterator<Item=A>,
+    R: Iterator<Item=A>
+{
+    type Item = A;
+    fn next(&mut self) -> Option<Self::Item> {
+        match *self {
+            OptionalIter::TrueIter(ref mut it) => it.next(),
+            OptionalIter::FalseIter(ref mut it) => it.next(),
+        }
+    }
+}
+
+pub trait IteratorOptionalExt : Iterator {
+    fn optional<L, R, F, G>(self, conditional: bool, mut f_left: F, mut f_right: G) -> OptionalIter<L, R>
+            where Self: Sized,
+                  F: FnOnce(Self) -> L,
+                  G: FnOnce(Self) -> R
+    {
+        if conditional {
+            OptionalIter::TrueIter(f_left(self))
+        } else {
+            OptionalIter::FalseIter(f_right(self))
+        }
+    }
+}
+
+impl<T: ?Sized> IteratorOptionalExt for T where T: Iterator { }
