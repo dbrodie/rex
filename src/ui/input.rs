@@ -26,6 +26,7 @@ impl Input {
             Key::Ctrl('c') => Some(HexEditActions::CopySelection),
             Key::Ctrl('v') => Some(HexEditActions::PasteSelection),
             Key::Ctrl('/') => Some(HexEditActions::HelpView),
+            Key::Ctrl('l') => Some(HexEditActions::LogView),
             Key::Ctrl('o') => Some(HexEditActions::ToggleInsert),
             Key::Ctrl('s') => Some(HexEditActions::ToggleSelecion),
             Key::Ctrl('z') => Some(HexEditActions::Undo),
