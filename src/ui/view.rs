@@ -26,6 +26,13 @@ enum UndoAction {
     Write(isize, Vec<u8>),
 }
 
+#[derive(Debug)]
+enum LineNumberMode {
+    None,
+    Short,
+    Long
+}
+
 #[derive(Copy,Clone,Debug)]
 pub enum HexEditActions {
     Edit(char),
@@ -115,6 +122,16 @@ impl HexEdit {
         self.input_entry = None;
         self.undo_stack = Vec::new();
         self.recalculate();
+    }
+
+    fn get_linenumber_mode(&self) -> LineNumberMode {
+        if !self.config.show_linenum {
+            LineNumberMode::None
+        } else if self.data_size / 2 <= 0xFFFF {
+            LineNumberMode::Short
+        } else {
+            LineNumberMode::Long
+        }
     }
 
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
@@ -213,11 +230,15 @@ impl HexEdit {
 
         for row in 0..row_count {
             let byte_pos = itit.peek().unwrap().0 as isize;
-            if self.nibble_start == 5 {
-                rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
-            } else {
-                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-            }
+            match self.get_linenumber_mode() {
+                LineNumberMode::None => (),
+                LineNumberMode::Short => {
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
+                }
+                LineNumberMode::Long => {
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+                }
+            };
 
             self.draw_line(rb, &mut itit.take((self.nibble_width as usize / 2)), row);
         }
@@ -744,7 +765,11 @@ impl HexEdit {
     pub fn resize(&mut self, width: i32, height: i32) {
         self.cur_height = (height as isize) - 1;
         self.cur_width = width as isize;
-        self.nibble_start = if self.data_size / 2 <= 0xFFFF { 1 + 4 } else { 2 + 8 };
+        self.nibble_start = match self.get_linenumber_mode() {
+            LineNumberMode::None => 0,
+            LineNumberMode::Short => 0 + 4,
+            LineNumberMode::Long=> 2 + 8,
+        };
         self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / 4);
         self.nibble_size = self.nibble_width * self.cur_height;
     }
