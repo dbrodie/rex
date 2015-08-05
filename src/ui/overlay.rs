@@ -91,7 +91,7 @@ impl OverlayText {
 
     pub fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
-        let mut iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
+        let iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
                     // Chomp the width of each line
                     |line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize)])
                     // |line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))

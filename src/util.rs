@@ -47,7 +47,7 @@ pub enum OptionalIter<L, R> {
     FalseIter(R)
 }
 
-impl<L, R, A> Iterator for OptionalIter<L, R> where 
+impl<L, R, A> Iterator for OptionalIter<L, R> where
     L: Iterator<Item=A>,
     R: Iterator<Item=A>
 {
@@ -61,7 +61,7 @@ impl<L, R, A> Iterator for OptionalIter<L, R> where
 }
 
 pub trait IteratorOptionalExt : Iterator {
-    fn optional<L, R, F, G>(self, conditional: bool, mut f_left: F, mut f_right: G) -> OptionalIter<L, R>
+    fn optional<L, R, F, G>(self, conditional: bool, f_left: F, f_right: G) -> OptionalIter<L, R>
             where Self: Sized,
                   F: FnOnce(Self) -> L,
                   G: FnOnce(Self) -> R

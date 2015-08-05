@@ -1,4 +1,3 @@
-use std::str;
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
