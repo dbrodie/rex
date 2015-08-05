@@ -11,6 +11,7 @@ use rustbox::keyboard::Key;
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
+use super::super::config::Config;
 
 use super::common::{Rect, u8_to_hex};
 use super::RustBoxEx::{RustBoxEx, Style};
@@ -23,6 +24,13 @@ enum UndoAction {
     Delete(isize, isize),
     Insert(isize, Vec<u8>),
     Write(isize, Vec<u8>),
+}
+
+#[derive(Debug)]
+enum LineNumberMode {
+    None,
+    Short,
+    Long
 }
 
 #[derive(Copy,Clone,Debug)]
@@ -55,6 +63,7 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: Segment,
+    config: Config,
     cursor_pos: isize,
     cur_height: isize,
     cur_width: isize,
@@ -78,9 +87,10 @@ pub struct HexEdit {
 }
 
 impl HexEdit {
-    pub fn new() -> HexEdit {
+    pub fn new(config: Config) -> HexEdit {
         HexEdit {
             buffer: Segment::new(),
+            config: config,
             cursor_pos: 0,
             nibble_size: 0,
             cur_width: 50,
@@ -114,8 +124,19 @@ impl HexEdit {
         self.recalculate();
     }
 
+    fn get_linenumber_mode(&self) -> LineNumberMode {
+        if !self.config.show_linenum {
+            LineNumberMode::None
+        } else if self.data_size / 2 <= 0xFFFF {
+            LineNumberMode::Short
+        } else {
+            LineNumberMode::Long
+        }
+    }
+
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.nibble_start as usize;
+        // The value of this is wrong if we are not showing the ascii view
         let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
         // We want the selection draw to not go out of the editor view
@@ -158,35 +179,37 @@ impl HexEdit {
                               row as isize);
             };
 
-            // Now let's draw the byte window
-            let byte_char = if let Some(&byte) = maybe_byte {
-                let bc = byte as char;
-                if bc.is_ascii() && bc.is_alphanumeric() {
-                    bc
+            if self.config.show_ascii {
+                // Now let's draw the byte window
+                let byte_char = if let Some(&byte) = maybe_byte {
+                    let bc = byte as char;
+                    if bc.is_ascii() && bc.is_alphanumeric() {
+                        bc
+                    } else {
+                        '.'
+                    }
                 } else {
-                    '.'
+                    ' '
+                };
+
+                // If we are at the current byte but the nibble view is active, we want to draw a
+                // "fake" cursor by dawing a selection square
+                let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
+                    Style::Selection
+                } else {
+                    Style::Default
+                };
+
+                rb.print_char_style(byte_view_start + row_offset, row, byte_style,
+                    byte_char);
+                if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
+                    rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
                 }
-            } else {
-                ' '
-            };
 
-            // If we are at the current byte but the nibble view is active, we want to draw a
-            // "fake" cursor by dawing a selection square
-            let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
-                Style::Selection
-            } else {
-                Style::Default
-            };
-
-            rb.print_char_style(byte_view_start + row_offset, row, byte_style,
-                byte_char);
-            if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
+                // Remember if we had a selection, so that we know for next char to "fill in" with
+                // selection in the nibble view
+                prev_in_selection = in_selection;
             }
-
-            // Remember if we had a selection, so that we know for next char to "fill in" with
-            // selection in the nibble view
-            prev_in_selection = in_selection;
         }
 
     }
@@ -210,11 +233,15 @@ impl HexEdit {
 
         for row in 0..row_count {
             let byte_pos = itit.peek().unwrap().0 as isize;
-            if self.nibble_start == 5 {
-                rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
-            } else {
-                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-            }
+            match self.get_linenumber_mode() {
+                LineNumberMode::None => (),
+                LineNumberMode::Short => {
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
+                }
+                LineNumberMode::Long => {
+                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
+                }
+            };
 
             self.draw_line(rb, &mut itit.take((self.nibble_width as usize / 2)), row);
         }
@@ -741,8 +768,17 @@ impl HexEdit {
     pub fn resize(&mut self, width: i32, height: i32) {
         self.cur_height = (height as isize) - 1;
         self.cur_width = width as isize;
-        self.nibble_start = if self.data_size / 2 <= 0xFFFF { 1 + 4 } else { 2 + 8 };
-        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / 4);
+        self.nibble_start = match self.get_linenumber_mode() {
+            LineNumberMode::None => 0,
+            LineNumberMode::Short => 0 + 4,
+            LineNumberMode::Long=> 2 + 8,
+        };
+        // This is the number of cells on the screen that are used for each byte.
+        // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
+        // the ascii view, if it is shown, we need another one.
+        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
+
+        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / cells_per_byte);
         self.nibble_size = self.nibble_width * self.cur_height;
     }
 }

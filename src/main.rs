@@ -1,6 +1,7 @@
 extern crate rustbox;
 extern crate rustc_serialize;
 extern crate gag;
+extern crate toml;
 
 use std::env::args;
 use std::path::Path;
@@ -9,16 +10,26 @@ use rustbox::keyboard::Key;
 use gag::Hold;
 
 #[macro_use] mod signals;
+mod config;
 mod ui;
 mod buffer;
 mod util;
 mod segment;
 
 use ui::view::HexEdit;
+use config::Config;
 
 fn main() {
     let mut args = args();
-    let mut edit = HexEdit::new();
+    let config = match Config::open_default() {
+        Ok(c) => c,
+        Err(e) => {
+            println!("Couldn't open config: {}", e);
+            return;
+        }
+    };
+
+    let mut edit = HexEdit::new(config);
 
     if args.len() > 1 {
         edit.open(&Path::new(&args.nth(1).unwrap()));
