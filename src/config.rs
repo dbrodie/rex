@@ -23,7 +23,7 @@ impl Error for ConfigError {
         match *self {
             ConfigError::IoError(ref e) => e.description(),
             ConfigError::TomlParserErrors(ref v) => v[0].description(),
-            ConfigError::InvalidFieldName(ref s) => "Invalid field name",
+            ConfigError::InvalidFieldName(_) => "Invalid field name",
             ConfigError::InvalidFieldType(_, _) => "Invalid field type",
         }
     }
@@ -94,7 +94,11 @@ impl Config {
     fn apply_toml(&mut self, mut t: toml::Table) -> Result<(), ConfigError> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
-        Ok(())
+        if let Some((key, _)) = t.into_iter().next() {
+            Err(ConfigError::InvalidFieldName(key))
+        } else {
+            Ok(())
+        }
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
@@ -104,8 +108,7 @@ impl Config {
         let mut parser =  toml::Parser::new(&s);
         if let Some(table) = parser.parse() {
             let mut config: Config = Default::default();
-            config.apply_toml(table);
-            return Ok(config);
+            return config.apply_toml(table).map(|_| config);
         }
         Err(ConfigError::TomlParserErrors(parser.errors))
     }
@@ -113,7 +116,7 @@ impl Config {
     fn get_config_path() -> PathBuf {
         let mut p = PathBuf::new();
         p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
-                |e| env::var("HOME").unwrap_or("/".into()) + "/.config"
+                |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
             ));
         p.join("hyksa").join("hyksa.conf")
     }

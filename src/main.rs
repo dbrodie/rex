@@ -8,7 +8,6 @@ use std::path::Path;
 use rustbox::{RustBox, Event, InputMode, InitOptions};
 use rustbox::keyboard::Key;
 use gag::Hold;
-use toml::decode_str;
 
 #[macro_use] mod signals;
 mod config;
