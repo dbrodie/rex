@@ -11,6 +11,7 @@ use rustbox::keyboard::Key;
 
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
+use super::super::config::Config;
 
 use super::common::{Rect, u8_to_hex};
 use super::RustBoxEx::{RustBoxEx, Style};
@@ -55,6 +56,7 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: Segment,
+    config: Config,
     cursor_pos: isize,
     cur_height: isize,
     cur_width: isize,
@@ -78,9 +80,10 @@ pub struct HexEdit {
 }
 
 impl HexEdit {
-    pub fn new() -> HexEdit {
+    pub fn new(config: Config) -> HexEdit {
         HexEdit {
             buffer: Segment::new(),
+            config: config,
             cursor_pos: 0,
             nibble_size: 0,
             cur_width: 50,
