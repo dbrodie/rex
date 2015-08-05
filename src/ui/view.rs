@@ -136,6 +136,7 @@ impl HexEdit {
 
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.nibble_start as usize;
+        // The value of this is wrong if we are not showing the ascii view
         let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
         // We want the selection draw to not go out of the editor view
@@ -178,35 +179,37 @@ impl HexEdit {
                               row as isize);
             };
 
-            // Now let's draw the byte window
-            let byte_char = if let Some(&byte) = maybe_byte {
-                let bc = byte as char;
-                if bc.is_ascii() && bc.is_alphanumeric() {
-                    bc
+            if self.config.show_ascii {
+                // Now let's draw the byte window
+                let byte_char = if let Some(&byte) = maybe_byte {
+                    let bc = byte as char;
+                    if bc.is_ascii() && bc.is_alphanumeric() {
+                        bc
+                    } else {
+                        '.'
+                    }
                 } else {
-                    '.'
+                    ' '
+                };
+
+                // If we are at the current byte but the nibble view is active, we want to draw a
+                // "fake" cursor by dawing a selection square
+                let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
+                    Style::Selection
+                } else {
+                    Style::Default
+                };
+
+                rb.print_char_style(byte_view_start + row_offset, row, byte_style,
+                    byte_char);
+                if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
+                    rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
                 }
-            } else {
-                ' '
-            };
 
-            // If we are at the current byte but the nibble view is active, we want to draw a
-            // "fake" cursor by dawing a selection square
-            let byte_style = if (self.nibble_active && at_current_byte) || in_selection {
-                Style::Selection
-            } else {
-                Style::Default
-            };
-
-            rb.print_char_style(byte_view_start + row_offset, row, byte_style,
-                byte_char);
-            if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
+                // Remember if we had a selection, so that we know for next char to "fill in" with
+                // selection in the nibble view
+                prev_in_selection = in_selection;
             }
-
-            // Remember if we had a selection, so that we know for next char to "fill in" with
-            // selection in the nibble view
-            prev_in_selection = in_selection;
         }
 
     }
@@ -770,7 +773,12 @@ impl HexEdit {
             LineNumberMode::Short => 0 + 4,
             LineNumberMode::Long=> 2 + 8,
         };
-        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / 4);
+        // This is the number of cells on the screen that are used for each byte.
+        // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
+        // the ascii view, if it is shown, we need another one.
+        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
+
+        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / cells_per_byte);
         self.nibble_size = self.nibble_width * self.cur_height;
     }
 }
