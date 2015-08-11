@@ -59,6 +59,7 @@ impl From<io::Error> for ConfigError {
 pub struct Config {
     pub show_ascii: bool,
     pub show_linenum: bool,
+    pub line_width: Option<u32>
 }
 
 impl Default for Config {
@@ -66,6 +67,7 @@ impl Default for Config {
         Config {
             show_ascii: true,
             show_linenum: true,
+            line_width: None,
         }
     }
 }
