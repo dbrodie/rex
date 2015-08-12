@@ -93,13 +93,11 @@ impl OverlayText {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
         let iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
                     // Chomp the width of each line
-                    |line| Some(&line[0..cmp::min(line.len(), (area.right - area.left) as usize)])
-                    // |line| Some(line.slice_to(cmp::min(line.len(), (area.right - area.left) as usize )))
-                    // Add "empty lines" - we need this so we clear the screen on empty lines
+                    |line| Some(&line[0..cmp::min(line.len(), (area.width) as usize)])
                     )
                 .chain(repeat)
             // Take only as many lines as needed
-                .take((area.bottom - area.top) as usize)
+                .take((area.height) as usize)
             // And count them
                 .enumerate();
 
@@ -107,7 +105,7 @@ impl OverlayText {
             // Clean the line
 
             rb.print_style(area.left as usize, (area.top + i as isize) as usize, Style::Default,
-                &string_with_repeat(' ', (area.right - area.left) as usize));
+                &string_with_repeat(' ', (area.width) as usize));
 
             // And draw the text if there is one
             if let Some(line) = opt_line {

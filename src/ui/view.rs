@@ -72,7 +72,6 @@ pub struct HexEdit {
     status_log: Vec<String>,
     data_offset: isize,
     row_offset: isize,
-    nibble_start: isize,
     nibble_active: bool,
     selection_start: Option<isize>,
     insert_mode: bool,
@@ -98,7 +97,6 @@ impl HexEdit {
             nibble_width: 1,
             data_offset: 0,
             row_offset: 0,
-            nibble_start: 0,
             data_size: 0,
             status_log: vec!("Press C-/ for help".to_string()),
             nibble_active: true,
@@ -135,12 +133,20 @@ impl HexEdit {
         }
     }
 
+    fn get_linenumber_width(&self) -> isize {
+        match self.get_linenumber_mode() {
+            LineNumberMode::None => 0,
+            LineNumberMode::Short => 4 + 1, // 4 for the XXXX + 1 for whitespace
+            LineNumberMode::Long => 7 + 1, // 7 for XXXX:XXXX + 1 for whitespace
+        }
+    }
+
     fn get_width_in_nibble(&self) -> isize {
         self.config.line_width.map(|i| i *2 ).unwrap_or(self.nibble_width as u32) as isize
     }
 
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
-        let nibble_view_start = self.nibble_start as usize;
+        let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
         let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
 
@@ -219,7 +225,6 @@ impl HexEdit {
                 prev_in_selection = in_selection;
             }
         }
-
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
@@ -787,17 +792,13 @@ impl HexEdit {
     pub fn resize(&mut self, width: i32, height: i32) {
         self.cur_height = (height as isize) - 1;
         self.cur_width = width as isize;
-        self.nibble_start = match self.get_linenumber_mode() {
-            LineNumberMode::None => 0,
-            LineNumberMode::Short => 1 + 4,
-            LineNumberMode::Long=> 2 + 8,
-        };
+
         // This is the number of cells on the screen that are used for each byte.
         // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
         // the ascii view, if it is shown, we need another one.
         let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
 
-        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / cells_per_byte);
+        self.nibble_width = 2 * ((self.cur_width - self.get_linenumber_width()) / cells_per_byte);
         self.nibble_size = self.get_width_in_nibble() * self.cur_height;
     }
 }
