@@ -63,9 +63,8 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 pub struct HexEdit {
     buffer: Segment,
     config: Config,
+    rect: Rect<isize>,
     cursor_pos: isize,
-    cur_height: isize,
-    cur_width: isize,
     nibble_width: isize,
     nibble_size: isize,
     data_size: isize,
@@ -90,10 +89,9 @@ impl HexEdit {
         HexEdit {
             buffer: Segment::new(),
             config: config,
+            rect: Default::default(),
             cursor_pos: 0,
             nibble_size: 0,
-            cur_width: 50,
-            cur_height: 50,
             nibble_width: 1,
             data_offset: 0,
             row_offset: 0,
@@ -233,7 +231,7 @@ impl HexEdit {
         let start_iter = (self.data_offset / 2) as usize;
         let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
 
-        let row_count = self.cur_height as usize;// (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
+        let row_count = self.rect.height as usize;// (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
 
         // We need this so that the iterator is stayed alive for the by_ref later
         let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter..stop_iter)
@@ -280,18 +278,18 @@ impl HexEdit {
         if let Some(entry) = self.input_entry.as_mut() {
             entry.draw(rb, Rect {
                 top: (rb.height() - 2) as isize,
-                bottom: (rb.height() - 1) as isize,
                 left: 0,
-                right: rb.width() as isize
+                height: 1,
+                width: rb.width() as isize
             }, true);
         }
 
         if let Some(overlay) = self.overlay.as_mut() {
             overlay.draw(rb, Rect {
                 top: 0,
-                bottom: self.cur_height,
                 left: 0,
-                right: self.cur_width,
+                height: self.rect.height,
+                width: self.rect.width,
             }, true);
         }
 
@@ -785,20 +783,20 @@ impl HexEdit {
 
     fn recalculate(&mut self) {
         self.data_size = (self.buffer.len() * 2) as isize;
-        let (new_width, new_height) = (self.cur_width as i32, (self.cur_height + 1) as i32);
+        let (new_width, new_height) = (self.rect.width as i32, (self.rect.height + 1) as i32);
         self.resize(new_width, new_height);
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
-        self.cur_height = (height as isize) - 1;
-        self.cur_width = width as isize;
+        self.rect.height = height as isize - 1;
+        self.rect.width = width as isize;
 
         // This is the number of cells on the screen that are used for each byte.
         // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
         // the ascii view, if it is shown, we need another one.
         let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
 
-        self.nibble_width = 2 * ((self.cur_width - self.get_linenumber_width()) / cells_per_byte);
-        self.nibble_size = self.get_width_in_nibble() * self.cur_height;
+        self.nibble_width = 2 * ((self.rect.width - self.get_linenumber_width()) / cells_per_byte);
+        self.nibble_size = self.get_width_in_nibble() * self.rect.height;
     }
 }

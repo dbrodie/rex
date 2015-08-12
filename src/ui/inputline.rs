@@ -82,7 +82,7 @@ impl InputLine for BaseInputLine {
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
-                 &string_with_repeat(' ', (area.right - area.left) as usize));
+                 &string_with_repeat(' ', area.width as usize));
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
         if has_focus {
