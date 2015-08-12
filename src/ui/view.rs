@@ -157,10 +157,7 @@ impl HexEdit {
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
 
-        for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate() {
-            if row_offset as isize >= self.get_bytes_per_row() {
-                continue;
-            }
+        for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate().take(self.get_bytes_per_row() as usize) {
             let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
@@ -229,6 +226,9 @@ impl HexEdit {
                 prev_in_selection = in_selection;
             }
         }
+
+        // We just need to consume the iterator
+        iter.count();
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
