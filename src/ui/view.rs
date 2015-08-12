@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
+use itertools::Itertools;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -244,13 +245,14 @@ impl HexEdit {
         // This is needed for the "fake" last element for insertion mode
             .map(|x| Some(x))
             .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None
-            .peekable();
+            .chunks_lazy(self.get_line_width() as usize);
+        let mut itit = itit_.into_iter();
+            //.peekable();
         // We need to take the iterator by ref so we can take from it later without transfering ownership
-        let mut itit = itit_.by_ref();
 
-        for row in 0..row_count {
-            if itit.peek().is_none() { break; }
-            let byte_pos = itit.peek().unwrap().0 as isize;
+        for (row, row_iter_) in itit.take(row_count).enumerate() {
+            let mut row_iter = row_iter_.peekable();
+            let byte_pos = row_iter.peek().unwrap().0 as isize;
             match self.get_linenumber_mode() {
                 LineNumberMode::None => (),
                 LineNumberMode::Short => {
@@ -261,7 +263,7 @@ impl HexEdit {
                 }
             };
 
-            self.draw_line(rb, &mut itit.take(self.get_line_width() as usize), row);
+            self.draw_line(rb, &mut row_iter, row);
         }
     }
 

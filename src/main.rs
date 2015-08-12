@@ -2,6 +2,7 @@ extern crate rustbox;
 extern crate rustc_serialize;
 extern crate gag;
 extern crate toml;
+extern crate itertools;
 
 use std::env::args;
 use std::path::Path;
