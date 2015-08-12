@@ -136,8 +136,8 @@ impl HexEdit {
         }
     }
 
-    fn get_width_in_nibble(&self) -> isize {
-        self.config.line_width.map(|i| i *2 ).unwrap_or((self.bytes_per_row * 2) as u32) as isize
+    fn get_line_width(&self) -> isize {
+        self.config.line_width.unwrap_or(self.bytes_per_row as u32) as isize
     }
 
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
@@ -252,7 +252,7 @@ impl HexEdit {
                 }
             };
 
-            self.draw_line(rb, &mut itit.take(self.get_width_in_nibble() as usize / 2), row);
+            self.draw_line(rb, &mut itit.take(self.get_line_width() as usize), row);
         }
     }
 
@@ -477,7 +477,7 @@ impl HexEdit {
     fn update_cursor(&mut self) {
         self.cursor_pos = cmp::max(self.cursor_pos, 0);
         self.cursor_pos = cmp::min(self.cursor_pos, (self.buffer.len()*2) as isize);
-        let nibble_width = self.get_width_in_nibble();
+        let nibble_width = self.get_line_width() * 2;
 
         // If the cursor moves above or below the view, scroll it
         if self.cursor_pos < self.data_offset {
@@ -582,20 +582,22 @@ impl HexEdit {
             HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
             HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
             HexEditActions::MoveUp => {
-                let t = -self.get_width_in_nibble();
+                let t = -self.get_line_width() * 2;
                 self.move_cursor(t)
             }
             HexEditActions::MoveDown => {
-                let t = self.get_width_in_nibble();
+                let t = self.get_line_width() * 2;
                 self.move_cursor(t)
             }
 
             HexEditActions::MovePageUp => {
-                let t = -((self.bytes_per_screen * 2) - self.get_width_in_nibble()) / 2;
+                // We want to move the cursor the amount of bytes on screen divided by two, we then
+                // multiply by two for it to be in nibbles
+                let t = -(self.bytes_per_screen - self.get_line_width()) / 2 * 2;
                 self.move_cursor(t)
             }
             HexEditActions::MovePageDown => {
-                let t = ((self.bytes_per_screen * 2) - self.get_width_in_nibble()) / 2;
+                let t = (self.bytes_per_screen - self.get_line_width()) / 2 * 2;
                 self.move_cursor(t)
             }
 
@@ -786,6 +788,8 @@ impl HexEdit {
         let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
 
         self.bytes_per_row = (self.rect.width - self.get_linenumber_width()) / cells_per_byte;
-        self.bytes_per_screen = self.get_width_in_nibble() / 2 * self.rect.height;
+        // This is important to calculate after the bytes_per_row, since the line_width is
+        // dependent on that
+        self.bytes_per_screen = self.get_line_width() * self.rect.height;
     }
 }
