@@ -64,7 +64,7 @@ pub struct HexEdit {
     buffer: Segment,
     config: Config,
     rect: Rect<isize>,
-    cursor_pos: isize,
+    cursor_nibble_pos: isize,
     status_log: Vec<String>,
     data_offset: isize,
     row_offset: isize,
@@ -87,7 +87,7 @@ impl HexEdit {
             buffer: Segment::new(),
             config: config,
             rect: Default::default(),
-            cursor_pos: 0,
+            cursor_nibble_pos: 0,
             data_offset: 0,
             row_offset: 0,
             status_log: vec!("Press C-/ for help".to_string()),
@@ -105,7 +105,7 @@ impl HexEdit {
     }
 
     fn reset(&mut self) {
-        self.cursor_pos = 0;
+        self.cursor_nibble_pos = 0;
         self.data_offset = 0;
         self.nibble_active = true;
         self.selection_start = None;
@@ -161,10 +161,10 @@ impl HexEdit {
             if row_offset as isize >= self.get_bytes_per_row() {
                 continue;
             }
-            let at_current_byte = byte_pos as isize == (self.cursor_pos / 2);
+            let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                is_between(byte_pos as isize, selection_pos / 2, self.cursor_pos / 2)
+                is_between(byte_pos as isize, selection_pos / 2, self.cursor_nibble_pos / 2)
             } else {
                 false
             };
@@ -193,7 +193,7 @@ impl HexEdit {
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(nibble_view_column as isize + (self.cursor_pos & 1),
+                rb.set_cursor(nibble_view_column as isize + (self.cursor_nibble_pos & 1),
                               row as isize);
             };
 
@@ -274,7 +274,7 @@ impl HexEdit {
         let right_status = format!(
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
-            self.cursor_pos, self.selection_start, self.insert_mode);
+            self.cursor_nibble_pos, self.selection_start, self.insert_mode);
         rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
     }
 
@@ -378,27 +378,27 @@ impl HexEdit {
     }
 
     fn cursor_at_end(&self) -> bool {
-        self.cursor_pos == (self.buffer.len()*2) as isize
+        self.cursor_nibble_pos == (self.buffer.len()*2) as isize
     }
 
     fn delete_at_cursor(&mut self, with_bksp: bool) {
-        let mut cursor_pos = self.cursor_pos;
+        let mut cursor_nibble_pos = self.cursor_nibble_pos;
 
         let selection_pos = match self.selection_start {
             Some(selection_pos_tag) => selection_pos_tag,
             None => {
                 if with_bksp {
-                    if cursor_pos < 2 {
+                    if cursor_nibble_pos < 2 {
                         return;
                     }
-                    cursor_pos -= 2;
+                    cursor_nibble_pos -= 2;
                 }
-                cursor_pos
+                cursor_nibble_pos
             }
         };
 
-        let del_start = cmp::min(selection_pos, cursor_pos) / 2;
-        let mut del_stop = cmp::max(selection_pos, cursor_pos) / 2 + 1;
+        let del_start = cmp::min(selection_pos, cursor_nibble_pos) / 2;
+        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos) / 2 + 1;
 
         if del_stop > self.buffer.len() as isize {
             del_stop -= 1;
@@ -431,26 +431,26 @@ impl HexEdit {
     }
 
     fn set_nibble_at_cursor(&mut self, c: u8) {
-        let mut byte = self.buffer[(self.cursor_pos / 2) as usize];
+        let mut byte = self.buffer[(self.cursor_nibble_pos / 2) as usize];
 
-        byte = match self.cursor_pos & 1 {
+        byte = match self.cursor_nibble_pos & 1 {
             0 => (byte & 0x0f) + c * 16,
             1 => (byte & 0xf0) + c,
             _ => 0xff,
         };
 
-        let byte_offset = self.cursor_pos / 2;
+        let byte_offset = self.cursor_nibble_pos / 2;
         self.do_action(UndoAction::Write(byte_offset, vec!(byte)), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
         // If we are at half byte, we still overwrite
-        if self.cursor_pos & 1 == 1 {
+        if self.cursor_nibble_pos & 1 == 1 {
             self.set_nibble_at_cursor(c);
             return
         }
 
-        let pos_div2 = self.cursor_pos / 2;
+        let pos_div2 = self.cursor_nibble_pos / 2;
         self.do_action(UndoAction::Insert(pos_div2, vec!(c * 16)), true);
     }
 
@@ -465,7 +465,7 @@ impl HexEdit {
             self.delete_at_cursor(false);
         }
 
-        let byte_offset = self.cursor_pos / 2;
+        let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
             self.do_action(UndoAction::Insert(byte_offset, vec!(c)), true);
         } else {
@@ -474,32 +474,32 @@ impl HexEdit {
     }
 
     fn move_cursor(&mut self, pos: isize) {
-        self.cursor_pos += pos;
+        self.cursor_nibble_pos += pos;
         self.update_cursor()
     }
 
     fn set_cursor(&mut self, pos: isize) {
-        self.cursor_pos = pos;
+        self.cursor_nibble_pos = pos;
         self.update_cursor()
     }
 
     fn update_cursor(&mut self) {
-        self.cursor_pos = cmp::max(self.cursor_pos, 0);
-        self.cursor_pos = cmp::min(self.cursor_pos, (self.buffer.len()*2) as isize);
+        self.cursor_nibble_pos = cmp::max(self.cursor_nibble_pos, 0);
+        self.cursor_nibble_pos = cmp::min(self.cursor_nibble_pos, (self.buffer.len()*2) as isize);
         let nibble_width = self.get_line_width() * 2;
 
         // If the cursor moves above or below the view, scroll it
-        if self.cursor_pos < self.data_offset {
-            self.data_offset = (self.cursor_pos / nibble_width) * nibble_width;
+        if self.cursor_nibble_pos < self.data_offset {
+            self.data_offset = (self.cursor_nibble_pos / nibble_width) * nibble_width;
         }
 
-        if self.cursor_pos > (self.data_offset + (self.get_bytes_per_screen() * 2) - 1) {
-            self.data_offset = self.cursor_pos - (self.cursor_pos % nibble_width) -
+        if self.cursor_nibble_pos > (self.data_offset + (self.get_bytes_per_screen() * 2) - 1) {
+            self.data_offset = self.cursor_nibble_pos - (self.cursor_nibble_pos % nibble_width) -
                           (self.get_bytes_per_screen() * 2) + nibble_width;
         }
 
         // If the cursor moves to the right or left of the view, scroll it
-        let cursor_offset = (self.cursor_pos % nibble_width) / 2;
+        let cursor_offset = (self.cursor_nibble_pos % nibble_width) / 2;
         if cursor_offset < self.row_offset {
             self.row_offset = cursor_offset;
         }
@@ -511,7 +511,7 @@ impl HexEdit {
     fn toggle_selection(&mut self) {
         match self.selection_start {
             Some(_) => self.selection_start = None,
-            None => self.selection_start = Some(self.cursor_pos)
+            None => self.selection_start = Some(self.cursor_nibble_pos)
         }
         let st = format!("selection = {:?}", self.selection_start);
         self.status(st.clone());
@@ -523,7 +523,7 @@ impl HexEdit {
     }
 
     fn find_buf(&mut self, needle: &[u8]) {
-        let found_pos = match self.buffer.find_from((self.cursor_pos / 2) as usize, needle) {
+        let found_pos = match self.buffer.find_from((self.cursor_nibble_pos / 2) as usize, needle) {
             None => {
                 self.buffer.find_from(0, needle)
             }
@@ -542,8 +542,8 @@ impl HexEdit {
         let (start, stop) = match self.selection_start {
             None => { return None; },
             Some(selection_pos) => {
-                (cmp::min(selection_pos, self.cursor_pos) / 2,
-                 cmp::max(selection_pos, self.cursor_pos) / 2)
+                (cmp::min(selection_pos, self.cursor_nibble_pos) / 2,
+                 cmp::max(selection_pos, self.cursor_nibble_pos) / 2)
             }
         };
 
@@ -575,7 +575,7 @@ impl HexEdit {
             return;
         }
 
-        let pos_div2 = self.cursor_pos / 2;
+        let pos_div2 = self.cursor_nibble_pos / 2;
         self.do_action(UndoAction::Insert(pos_div2, data), true);
     }
 
