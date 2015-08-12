@@ -66,7 +66,7 @@ pub struct HexEdit {
     rect: Rect<isize>,
     cursor_pos: isize,
     bytes_per_row: isize,
-    nibble_size: isize,
+    bytes_per_screen: isize,
     status_log: Vec<String>,
     data_offset: isize,
     row_offset: isize,
@@ -90,7 +90,7 @@ impl HexEdit {
             config: config,
             rect: Default::default(),
             cursor_pos: 0,
-            nibble_size: 0,
+            bytes_per_screen: 0,
             bytes_per_row: 1,
             data_offset: 0,
             row_offset: 0,
@@ -226,7 +226,7 @@ impl HexEdit {
         let extra_none: &[Option<&u8>] = &[None];
 
         let start_iter = (self.data_offset / 2) as usize;
-        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
+        let stop_iter = cmp::min(start_iter + self.bytes_per_screen as usize, self.buffer.len());
 
         let row_count = self.rect.height as usize;
 
@@ -484,9 +484,9 @@ impl HexEdit {
             self.data_offset = (self.cursor_pos / nibble_width) * nibble_width;
         }
 
-        if self.cursor_pos > (self.data_offset + self.nibble_size - 1) {
+        if self.cursor_pos > (self.data_offset + (self.bytes_per_screen * 2) - 1) {
             self.data_offset = self.cursor_pos - (self.cursor_pos % nibble_width) -
-                          self.nibble_size + nibble_width;
+                          (self.bytes_per_screen * 2) + nibble_width;
         }
 
         // If the cursor moves to the right or left of the view, scroll it
@@ -591,11 +591,11 @@ impl HexEdit {
             }
 
             HexEditActions::MovePageUp => {
-                let t = -(self.nibble_size - self.get_width_in_nibble()) / 2;
+                let t = -((self.bytes_per_screen * 2) - self.get_width_in_nibble()) / 2;
                 self.move_cursor(t)
             }
             HexEditActions::MovePageDown => {
-                let t = (self.nibble_size - self.get_width_in_nibble()) / 2;
+                let t = ((self.bytes_per_screen * 2) - self.get_width_in_nibble()) / 2;
                 self.move_cursor(t)
             }
 
@@ -786,6 +786,6 @@ impl HexEdit {
         let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
 
         self.bytes_per_row = (self.rect.width - self.get_linenumber_width()) / cells_per_byte;
-        self.nibble_size = self.get_width_in_nibble() * self.rect.height;
+        self.bytes_per_screen = self.get_width_in_nibble() / 2 * self.rect.height;
     }
 }
