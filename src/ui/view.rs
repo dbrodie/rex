@@ -67,7 +67,6 @@ pub struct HexEdit {
     cursor_pos: isize,
     bytes_per_row: isize,
     nibble_size: isize,
-    data_size: isize,
     status_log: Vec<String>,
     data_offset: isize,
     row_offset: isize,
@@ -95,7 +94,6 @@ impl HexEdit {
             bytes_per_row: 1,
             data_offset: 0,
             row_offset: 0,
-            data_size: 0,
             status_log: vec!("Press C-/ for help".to_string()),
             nibble_active: true,
             selection_start: None,
@@ -118,13 +116,12 @@ impl HexEdit {
         self.insert_mode = false;
         self.input_entry = None;
         self.undo_stack = Vec::new();
-        self.recalculate();
     }
 
     fn get_linenumber_mode(&self) -> LineNumberMode {
         if !self.config.show_linenum {
             LineNumberMode::None
-        } else if self.data_size / 2 <= 0xFFFF {
+        } else if self.buffer.len() <= 0xFFFF {
             LineNumberMode::Short
         } else {
             LineNumberMode::Long
@@ -338,7 +335,6 @@ impl HexEdit {
                 if add_to_undo {
                     self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize))
                 }
-                self.recalculate();
             }
             UndoAction::Delete(offset, end) => {
                 begin_region = offset;
@@ -346,7 +342,6 @@ impl HexEdit {
 
                 let res = self.buffer.remove(offset as usize, end as usize);
                 if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
-                self.recalculate();
             }
             UndoAction::Write(offset, buf) => {
                 begin_region = offset;
@@ -374,7 +369,7 @@ impl HexEdit {
     }
 
     fn cursor_at_end(&self) -> bool {
-        self.cursor_pos == self.data_size
+        self.cursor_pos == (self.buffer.len()*2) as isize
     }
 
     fn delete_at_cursor(&mut self, with_bksp: bool) {
@@ -396,14 +391,14 @@ impl HexEdit {
         let del_start = cmp::min(selection_pos, cursor_pos) / 2;
         let mut del_stop = cmp::max(selection_pos, cursor_pos) / 2 + 1;
 
-        if del_stop > self.data_size / 2 {
+        if del_stop > self.buffer.len() as isize {
             del_stop -= 1;
             if del_stop == del_start {
                 return;
             }
         }
 
-        if self.data_size == 0 {
+        if self.buffer.len() == 0 {
             self.status(format!("Nothing to delete"));
             return;
         }
@@ -481,7 +476,7 @@ impl HexEdit {
 
     fn update_cursor(&mut self) {
         self.cursor_pos = cmp::max(self.cursor_pos, 0);
-        self.cursor_pos = cmp::min(self.cursor_pos, self.data_size);
+        self.cursor_pos = cmp::min(self.cursor_pos, (self.buffer.len()*2) as isize);
         let nibble_width = self.get_width_in_nibble();
 
         // If the cursor moves above or below the view, scroll it
@@ -779,12 +774,6 @@ impl HexEdit {
         self.view_input(key);
 
         self.process_msgs();
-    }
-
-    fn recalculate(&mut self) {
-        self.data_size = (self.buffer.len() * 2) as isize;
-        let (new_width, new_height) = (self.rect.width as i32, (self.rect.height + 1) as i32);
-        self.resize(new_width, new_height);
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
