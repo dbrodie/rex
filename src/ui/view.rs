@@ -246,7 +246,7 @@ impl HexEdit {
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
-        let start_iter = (self.data_offset / 2) as usize;
+        let start_iter = self.data_offset as usize;
         let stop_iter = cmp::min(start_iter + self.get_bytes_per_screen() as usize, self.buffer.len());
 
         let itit = (start_iter..).zip(  // We are zipping the byte position
@@ -486,25 +486,25 @@ impl HexEdit {
     fn update_cursor(&mut self) {
         self.cursor_nibble_pos = cmp::max(self.cursor_nibble_pos, 0);
         self.cursor_nibble_pos = cmp::min(self.cursor_nibble_pos, (self.buffer.len()*2) as isize);
-        let nibble_width = self.get_line_width() * 2;
+        let cursor_byte_pos = self.cursor_nibble_pos / 2;
+        let cursor_row_offset = cursor_byte_pos % self.get_line_width();
 
         // If the cursor moves above or below the view, scroll it
-        if self.cursor_nibble_pos < self.data_offset {
-            self.data_offset = (self.cursor_nibble_pos / nibble_width) * nibble_width;
+        if cursor_byte_pos < self.data_offset {
+            self.data_offset = (cursor_byte_pos) - cursor_row_offset;
         }
 
-        if self.cursor_nibble_pos > (self.data_offset + (self.get_bytes_per_screen() * 2) - 1) {
-            self.data_offset = self.cursor_nibble_pos - (self.cursor_nibble_pos % nibble_width) -
-                          (self.get_bytes_per_screen() * 2) + nibble_width;
+        if cursor_byte_pos > (self.data_offset + self.get_bytes_per_screen() - 1) {
+            self.data_offset = cursor_byte_pos  - cursor_row_offset -
+                          self.get_bytes_per_screen() + self.get_line_width();
         }
 
         // If the cursor moves to the right or left of the view, scroll it
-        let cursor_offset = (self.cursor_nibble_pos % nibble_width) / 2;
-        if cursor_offset < self.row_offset {
-            self.row_offset = cursor_offset;
+        if cursor_row_offset < self.row_offset {
+            self.row_offset = cursor_row_offset;
         }
-        if cursor_offset >= self.row_offset + self.get_bytes_per_row() {
-            self.row_offset = cursor_offset - self.get_bytes_per_row() + 1;
+        if cursor_row_offset >= self.row_offset + self.get_bytes_per_row() {
+            self.row_offset = cursor_row_offset - self.get_bytes_per_row() + 1;
         }
     }
 
