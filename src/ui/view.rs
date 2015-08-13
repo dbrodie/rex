@@ -547,7 +547,7 @@ impl HexEdit {
             }
         };
 
-        let data = self.buffer.read(start as usize, stop as usize);
+        let data = self.buffer.read(start as usize, (stop - start + 1) as usize);
         let data_len = data.len();
 
         self.clipboard = Some(data);
@@ -557,26 +557,29 @@ impl HexEdit {
     fn edit_copy(&mut self) {
         if let Some(data_len) = self.read_cursor_to_clipboard() {
              self.status(format!("Copied {}", data_len));
+             self.selection_start = None;
         }
     }
 
     fn edit_cut(&mut self) {
         if let Some(data_len) = self.read_cursor_to_clipboard() {
-             self.delete_at_cursor(false);
+            self.delete_at_cursor(false);
             self.status(format!("Cut {}", data_len));
         }
     }
 
     fn edit_paste(&mut self) {
-        let data;
-        if let Some(ref d) = self.clipboard {
-            data = d.clone();
+        let data = if let Some(ref d) = self.clipboard {
+            d.clone()
         } else {
             return;
-        }
+        };
 
-        let pos_div2 = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(pos_div2, data), true);
+        let data_len = data.len() as isize;
+        // This is needed to satisfy the borrow checker
+        let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
+        self.do_action(UndoAction::Insert(cur_pos_in_bytes, data), true);
+        self.move_cursor(data_len + 1);
     }
 
     fn view_input(&mut self, key: Key) {
