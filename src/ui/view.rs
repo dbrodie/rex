@@ -1,6 +1,7 @@
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
+use std::iter;
 use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
@@ -150,6 +151,18 @@ impl HexEdit {
         self.get_line_width() * self.rect.height
     }
 
+    fn draw_line_number(&self, rb: &RustBox, row: usize, line_number: usize) {
+        match self.get_linenumber_mode() {
+            LineNumberMode::None => (),
+            LineNumberMode::Short => {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}", line_number));
+            }
+            LineNumberMode::Long => {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", line_number >> 16, line_number & 0xFFFF));
+            }
+        };
+    }
+
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
@@ -233,35 +246,20 @@ impl HexEdit {
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
-        let extra_none: &[Option<&u8>] = &[None];
-
         let start_iter = (self.data_offset / 2) as usize;
         let stop_iter = cmp::min(start_iter + self.get_bytes_per_screen() as usize, self.buffer.len());
 
-        let row_count = self.rect.height as usize;
+        let itit = (start_iter..).zip(  // We are zipping the byte position
+            self.buffer.iter_range(start_iter..stop_iter)  // With the data at those bytes
+            .map(|x| Some(x))  // And wrapping it in an option
+            .chain(iter::once(None)))  // So we can have a "fake" last item that will be None
+            .chunks_lazy(self.get_line_width() as usize);  //And split it into nice row-sized chunks
 
-        // We need this so that the iterator is stayed alive for the by_ref later
-        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter..stop_iter)
-        // This is needed for the "fake" last element for insertion mode
-            .map(|x| Some(x))
-            .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None
-            .chunks_lazy(self.get_line_width() as usize);
-        let mut itit = itit_.into_iter();
-            //.peekable();
-        // We need to take the iterator by ref so we can take from it later without transfering ownership
-
-        for (row, row_iter_) in itit.take(row_count).enumerate() {
+        for (row, row_iter_) in itit.into_iter().take(self.rect.height as usize).enumerate() {
+            // We need to be able to peek in the iterable so we can get the current position
             let mut row_iter = row_iter_.peekable();
-            let byte_pos = row_iter.peek().unwrap().0 as isize;
-            match self.get_linenumber_mode() {
-                LineNumberMode::None => (),
-                LineNumberMode::Short => {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
-                }
-                LineNumberMode::Long => {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-                }
-            };
+            let byte_pos = row_iter.peek().unwrap().0;
+            self.draw_line_number(rb, row, byte_pos);
 
             self.draw_line(rb, &mut row_iter, row);
         }
