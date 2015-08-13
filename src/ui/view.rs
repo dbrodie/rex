@@ -1,9 +1,11 @@
 use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
+use std::iter;
 use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
+use itertools::Itertools;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -63,15 +65,11 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 pub struct HexEdit {
     buffer: Segment,
     config: Config,
-    cursor_pos: isize,
-    cur_height: isize,
-    cur_width: isize,
-    nibble_width: isize,
-    nibble_size: isize,
-    data_size: isize,
+    rect: Rect<isize>,
+    cursor_nibble_pos: isize,
     status_log: Vec<String>,
     data_offset: isize,
-    nibble_start: isize,
+    row_offset: isize,
     nibble_active: bool,
     selection_start: Option<isize>,
     insert_mode: bool,
@@ -90,14 +88,10 @@ impl HexEdit {
         HexEdit {
             buffer: Segment::new(),
             config: config,
-            cursor_pos: 0,
-            nibble_size: 0,
-            cur_width: 50,
-            cur_height: 50,
-            nibble_width: 1,
+            rect: Default::default(),
+            cursor_nibble_pos: 0,
             data_offset: 0,
-            nibble_start: 0,
-            data_size: 0,
+            row_offset: 0,
             status_log: vec!("Press C-/ for help".to_string()),
             nibble_active: true,
             selection_start: None,
@@ -113,39 +107,75 @@ impl HexEdit {
     }
 
     fn reset(&mut self) {
-        self.cursor_pos = 0;
+        self.cursor_nibble_pos = 0;
         self.data_offset = 0;
         self.nibble_active = true;
         self.selection_start = None;
         self.insert_mode = false;
         self.input_entry = None;
         self.undo_stack = Vec::new();
-        self.recalculate();
     }
 
     fn get_linenumber_mode(&self) -> LineNumberMode {
         if !self.config.show_linenum {
             LineNumberMode::None
-        } else if self.data_size / 2 <= 0xFFFF {
+        } else if self.buffer.len() <= 0xFFFF {
             LineNumberMode::Short
         } else {
             LineNumberMode::Long
         }
     }
 
+    fn get_linenumber_width(&self) -> isize {
+        match self.get_linenumber_mode() {
+            LineNumberMode::None => 0,
+            LineNumberMode::Short => 4 + 1, // 4 for the XXXX + 1 for whitespace
+            LineNumberMode::Long => 9 + 1, // 7 for XXXX:XXXX + 1 for whitespace
+        }
+    }
+
+    fn get_line_width(&self) -> isize {
+        self.config.line_width.unwrap_or(self.get_bytes_per_row() as u32) as isize
+    }
+
+    fn get_bytes_per_row(&self) -> isize {
+        // This is the number of cells on the screen that are used for each byte.
+        // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
+        // the ascii view, if it is shown, we need another one.
+        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
+
+        (self.rect.width - self.get_linenumber_width()) / cells_per_byte
+    }
+
+    fn get_bytes_per_screen(&self) -> isize {
+        self.get_line_width() * self.rect.height
+    }
+
+    fn draw_line_number(&self, rb: &RustBox, row: usize, line_number: usize) {
+        match self.get_linenumber_mode() {
+            LineNumberMode::None => (),
+            LineNumberMode::Short => {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}", line_number));
+            }
+            LineNumberMode::Long => {
+                rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", line_number >> 16, line_number & 0xFFFF));
+            }
+        };
+    }
+
     fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
-        let nibble_view_start = self.nibble_start as usize;
+        let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
-        let byte_view_start = nibble_view_start + (self.nibble_width as usize / 2) * 3;
+        let byte_view_start = nibble_view_start + self.get_bytes_per_row() as usize * 3;
 
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
 
-        for (row_offset, (byte_pos, maybe_byte)) in iter.enumerate() {
-            let at_current_byte = byte_pos as isize == (self.cursor_pos / 2);
+        for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate().take(self.get_bytes_per_row() as usize) {
+            let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                is_between(byte_pos as isize, selection_pos / 2, self.cursor_pos / 2)
+                is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
             } else {
                 false
             };
@@ -174,7 +204,7 @@ impl HexEdit {
 
             }
             if self.nibble_active && self.input_entry.is_none() && at_current_byte {
-                rb.set_cursor(nibble_view_column as isize + (self.cursor_pos & 1),
+                rb.set_cursor(nibble_view_column as isize + (self.cursor_nibble_pos & 1),
                               row as isize);
             };
 
@@ -211,38 +241,27 @@ impl HexEdit {
             }
         }
 
+        // We just need to consume the iterator
+        iter.count();
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
-        let extra_none: &[Option<&u8>] = &[None];
+        let start_iter = self.data_offset as usize;
+        let stop_iter = cmp::min(start_iter + self.get_bytes_per_screen() as usize, self.buffer.len());
 
-        let start_iter = (self.data_offset / 2) as usize;
-        let stop_iter = cmp::min(start_iter + (self.nibble_size / 2) as usize, self.buffer.len());
+        let itit = (start_iter..).zip(  // We are zipping the byte position
+            self.buffer.iter_range(start_iter..stop_iter)  // With the data at those bytes
+            .map(|x| Some(x))  // And wrapping it in an option
+            .chain(iter::once(None)))  // So we can have a "fake" last item that will be None
+            .chunks_lazy(self.get_line_width() as usize);  //And split it into nice row-sized chunks
 
-        let row_count = (stop_iter - start_iter) / (self.nibble_width as usize / 2) + 1;
+        for (row, row_iter_) in itit.into_iter().take(self.rect.height as usize).enumerate() {
+            // We need to be able to peek in the iterable so we can get the current position
+            let mut row_iter = row_iter_.peekable();
+            let byte_pos = row_iter.peek().unwrap().0;
+            self.draw_line_number(rb, row, byte_pos);
 
-        // We need this so that the iterator is stayed alive for the by_ref later
-        let mut itit_ = (start_iter..).zip(self.buffer.iter_range(start_iter..stop_iter)
-        // This is needed for the "fake" last element for insertion mode
-            .map(|x| Some(x))
-            .chain(extra_none.iter().map(|n| *n))) // So the last item will be a None
-            .peekable();
-        // We need to take the iterator by ref so we can take from it later without transfering ownership
-        let mut itit = itit_.by_ref();
-
-        for row in 0..row_count {
-            let byte_pos = itit.peek().unwrap().0 as isize;
-            match self.get_linenumber_mode() {
-                LineNumberMode::None => (),
-                LineNumberMode::Short => {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}", byte_pos));
-                }
-                LineNumberMode::Long => {
-                    rb.print_style(0, row, Style::Default, &format!("{:04X}:{:04X}", byte_pos >> 16, byte_pos & 0xFFFF));
-                }
-            };
-
-            self.draw_line(rb, &mut itit.take((self.nibble_width as usize / 2)), row);
+            self.draw_line(rb, &mut row_iter, row);
         }
     }
 
@@ -255,7 +274,7 @@ impl HexEdit {
         let right_status = format!(
             "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
             self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
-            self.cursor_pos, self.selection_start, self.insert_mode);
+            self.cursor_nibble_pos, self.selection_start, self.insert_mode);
         rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
     }
 
@@ -265,18 +284,18 @@ impl HexEdit {
         if let Some(entry) = self.input_entry.as_mut() {
             entry.draw(rb, Rect {
                 top: (rb.height() - 2) as isize,
-                bottom: (rb.height() - 1) as isize,
                 left: 0,
-                right: rb.width() as isize
+                height: 1,
+                width: rb.width() as isize
             }, true);
         }
 
         if let Some(overlay) = self.overlay.as_mut() {
             overlay.draw(rb, Rect {
                 top: 0,
-                bottom: self.cur_height,
                 left: 0,
-                right: self.cur_width,
+                height: self.rect.height,
+                width: self.rect.width,
             }, true);
         }
 
@@ -325,7 +344,6 @@ impl HexEdit {
                 if add_to_undo {
                     self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize))
                 }
-                self.recalculate();
             }
             UndoAction::Delete(offset, end) => {
                 begin_region = offset;
@@ -333,7 +351,6 @@ impl HexEdit {
 
                 let res = self.buffer.remove(offset as usize, end as usize);
                 if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
-                self.recalculate();
             }
             UndoAction::Write(offset, buf) => {
                 begin_region = offset;
@@ -361,36 +378,36 @@ impl HexEdit {
     }
 
     fn cursor_at_end(&self) -> bool {
-        self.cursor_pos == self.data_size
+        self.cursor_nibble_pos == (self.buffer.len()*2) as isize
     }
 
     fn delete_at_cursor(&mut self, with_bksp: bool) {
-        let mut cursor_pos = self.cursor_pos;
+        let mut cursor_nibble_pos = self.cursor_nibble_pos;
 
         let selection_pos = match self.selection_start {
             Some(selection_pos_tag) => selection_pos_tag,
             None => {
                 if with_bksp {
-                    if cursor_pos < 2 {
+                    if cursor_nibble_pos < 2 {
                         return;
                     }
-                    cursor_pos -= 2;
+                    cursor_nibble_pos -= 2;
                 }
-                cursor_pos
+                cursor_nibble_pos / 2
             }
         };
 
-        let del_start = cmp::min(selection_pos, cursor_pos) / 2;
-        let mut del_stop = cmp::max(selection_pos, cursor_pos) / 2 + 1;
+        let del_start = cmp::min(selection_pos, cursor_nibble_pos / 2);
+        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos / 2) + 1;
 
-        if del_stop > self.data_size / 2 {
+        if del_stop > self.buffer.len() as isize {
             del_stop -= 1;
             if del_stop == del_start {
                 return;
             }
         }
 
-        if self.data_size == 0 {
+        if self.buffer.len() == 0 {
             self.status(format!("Nothing to delete"));
             return;
         }
@@ -414,26 +431,26 @@ impl HexEdit {
     }
 
     fn set_nibble_at_cursor(&mut self, c: u8) {
-        let mut byte = self.buffer[(self.cursor_pos / 2) as usize];
+        let mut byte = self.buffer[(self.cursor_nibble_pos / 2) as usize];
 
-        byte = match self.cursor_pos & 1 {
+        byte = match self.cursor_nibble_pos & 1 {
             0 => (byte & 0x0f) + c * 16,
             1 => (byte & 0xf0) + c,
             _ => 0xff,
         };
 
-        let byte_offset = self.cursor_pos / 2;
+        let byte_offset = self.cursor_nibble_pos / 2;
         self.do_action(UndoAction::Write(byte_offset, vec!(byte)), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
         // If we are at half byte, we still overwrite
-        if self.cursor_pos & 1 == 1 {
+        if self.cursor_nibble_pos & 1 == 1 {
             self.set_nibble_at_cursor(c);
             return
         }
 
-        let pos_div2 = self.cursor_pos / 2;
+        let pos_div2 = self.cursor_nibble_pos / 2;
         self.do_action(UndoAction::Insert(pos_div2, vec!(c * 16)), true);
     }
 
@@ -448,7 +465,7 @@ impl HexEdit {
             self.delete_at_cursor(false);
         }
 
-        let byte_offset = self.cursor_pos / 2;
+        let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
             self.do_action(UndoAction::Insert(byte_offset, vec!(c)), true);
         } else {
@@ -457,34 +474,44 @@ impl HexEdit {
     }
 
     fn move_cursor(&mut self, pos: isize) {
-        self.cursor_pos += pos;
+        self.cursor_nibble_pos += pos;
         self.update_cursor()
     }
 
     fn set_cursor(&mut self, pos: isize) {
-        self.cursor_pos = pos;
+        self.cursor_nibble_pos = pos;
         self.update_cursor()
     }
 
     fn update_cursor(&mut self) {
-        self.cursor_pos = cmp::max(self.cursor_pos, 0);
-        self.cursor_pos = cmp::min(self.cursor_pos, self.data_size);
+        self.cursor_nibble_pos = cmp::max(self.cursor_nibble_pos, 0);
+        self.cursor_nibble_pos = cmp::min(self.cursor_nibble_pos, (self.buffer.len()*2) as isize);
+        let cursor_byte_pos = self.cursor_nibble_pos / 2;
+        let cursor_row_offset = cursor_byte_pos % self.get_line_width();
 
-        if self.cursor_pos < self.data_offset {
-            self.data_offset = (self.cursor_pos / self.nibble_width) * self.nibble_width;
+        // If the cursor moves above or below the view, scroll it
+        if cursor_byte_pos < self.data_offset {
+            self.data_offset = (cursor_byte_pos) - cursor_row_offset;
         }
 
-        if self.cursor_pos > (self.data_offset + self.nibble_size - 1) {
-            let end_row = self.cursor_pos - (self.cursor_pos % self.nibble_width) -
-                          self.nibble_size + self.nibble_width;
-            self.data_offset = end_row;
+        if cursor_byte_pos > (self.data_offset + self.get_bytes_per_screen() - 1) {
+            self.data_offset = cursor_byte_pos  - cursor_row_offset -
+                          self.get_bytes_per_screen() + self.get_line_width();
+        }
+
+        // If the cursor moves to the right or left of the view, scroll it
+        if cursor_row_offset < self.row_offset {
+            self.row_offset = cursor_row_offset;
+        }
+        if cursor_row_offset >= self.row_offset + self.get_bytes_per_row() {
+            self.row_offset = cursor_row_offset - self.get_bytes_per_row() + 1;
         }
     }
 
     fn toggle_selection(&mut self) {
         match self.selection_start {
             Some(_) => self.selection_start = None,
-            None => self.selection_start = Some(self.cursor_pos)
+            None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
         let st = format!("selection = {:?}", self.selection_start);
         self.status(st.clone());
@@ -496,7 +523,7 @@ impl HexEdit {
     }
 
     fn find_buf(&mut self, needle: &[u8]) {
-        let found_pos = match self.buffer.find_from((self.cursor_pos / 2) as usize, needle) {
+        let found_pos = match self.buffer.find_from((self.cursor_nibble_pos / 2) as usize, needle) {
             None => {
                 self.buffer.find_from(0, needle)
             }
@@ -515,12 +542,12 @@ impl HexEdit {
         let (start, stop) = match self.selection_start {
             None => { return None; },
             Some(selection_pos) => {
-                (cmp::min(selection_pos, self.cursor_pos) / 2,
-                 cmp::max(selection_pos, self.cursor_pos) / 2)
+                (cmp::min(selection_pos, self.cursor_nibble_pos / 2),
+                 cmp::max(selection_pos, self.cursor_nibble_pos / 2))
             }
         };
 
-        let data = self.buffer.read(start as usize, stop as usize);
+        let data = self.buffer.read(start as usize, (stop - start + 1) as usize);
         let data_len = data.len();
 
         self.clipboard = Some(data);
@@ -530,26 +557,29 @@ impl HexEdit {
     fn edit_copy(&mut self) {
         if let Some(data_len) = self.read_cursor_to_clipboard() {
              self.status(format!("Copied {}", data_len));
+             self.selection_start = None;
         }
     }
 
     fn edit_cut(&mut self) {
         if let Some(data_len) = self.read_cursor_to_clipboard() {
-             self.delete_at_cursor(false);
+            self.delete_at_cursor(false);
             self.status(format!("Cut {}", data_len));
         }
     }
 
     fn edit_paste(&mut self) {
-        let data;
-        if let Some(ref d) = self.clipboard {
-            data = d.clone();
+        let data = if let Some(ref d) = self.clipboard {
+            d.clone()
         } else {
             return;
-        }
+        };
 
-        let pos_div2 = self.cursor_pos / 2;
-        self.do_action(UndoAction::Insert(pos_div2, data), true);
+        let data_len = data.len() as isize;
+        // This is needed to satisfy the borrow checker
+        let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
+        self.do_action(UndoAction::Insert(cur_pos_in_bytes, data), true);
+        self.move_cursor(data_len + 1);
     }
 
     fn view_input(&mut self, key: Key) {
@@ -564,20 +594,22 @@ impl HexEdit {
             HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
             HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
             HexEditActions::MoveUp => {
-                let t = -self.nibble_width;
+                let t = -self.get_line_width() * 2;
                 self.move_cursor(t)
             }
             HexEditActions::MoveDown => {
-                let t = self.nibble_width;
+                let t = self.get_line_width() * 2;
                 self.move_cursor(t)
             }
 
             HexEditActions::MovePageUp => {
-                let t = -(self.nibble_size - self.nibble_width) / 2;
+                // We want to move the cursor the amount of bytes on screen divided by two, we then
+                // multiply by two for it to be in nibbles
+                let t = -(self.get_bytes_per_screen() - self.get_line_width()) / 2 * 2;
                 self.move_cursor(t)
             }
             HexEditActions::MovePageDown => {
-                let t = (self.nibble_size - self.nibble_width) / 2;
+                let t = (self.get_bytes_per_screen() - self.get_line_width()) / 2 * 2;
                 self.move_cursor(t)
             }
 
@@ -758,26 +790,8 @@ impl HexEdit {
         self.process_msgs();
     }
 
-    fn recalculate(&mut self) {
-        self.data_size = (self.buffer.len() * 2) as isize;
-        let (new_width, new_height) = (self.cur_width as i32, (self.cur_height + 1) as i32);
-        self.resize(new_width, new_height);
-    }
-
     pub fn resize(&mut self, width: i32, height: i32) {
-        self.cur_height = (height as isize) - 1;
-        self.cur_width = width as isize;
-        self.nibble_start = match self.get_linenumber_mode() {
-            LineNumberMode::None => 0,
-            LineNumberMode::Short => 0 + 4,
-            LineNumberMode::Long=> 2 + 8,
-        };
-        // This is the number of cells on the screen that are used for each byte.
-        // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
-        // the ascii view, if it is shown, we need another one.
-        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
-
-        self.nibble_width = 2 * ((self.cur_width - self.nibble_start) / cells_per_byte);
-        self.nibble_size = self.nibble_width * self.cur_height;
+        self.rect.height = height as isize - 1;
+        self.rect.width = width as isize;
     }
 }

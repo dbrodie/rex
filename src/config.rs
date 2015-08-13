@@ -59,6 +59,7 @@ impl From<io::Error> for ConfigError {
 pub struct Config {
     pub show_ascii: bool,
     pub show_linenum: bool,
+    pub line_width: Option<u32>
 }
 
 impl Default for Config {
@@ -66,6 +67,7 @@ impl Default for Config {
         Config {
             show_ascii: true,
             show_linenum: true,
+            line_width: None,
         }
     }
 }
@@ -82,18 +84,25 @@ macro_rules! try_unwrap_toml {
 }
 
 macro_rules! decode_toml {
+    ($obj:expr, $name:ident, $table:expr, $toml_type:ident, $map_func:expr) => ({
+        $obj.$name = match $table.remove(stringify!($name)) {
+            Some(val) => $map_func(try_unwrap_toml!(val, $toml_type)),
+            None => $obj.$name
+        };
+    });
     ($obj:expr, $name:ident, $table:expr, $toml_type:ident) => ({
         $obj.$name = match $table.remove(stringify!($name)) {
             Some(val) => try_unwrap_toml!(val, $toml_type),
             None => $obj.$name
         };
-    })
+    });
 }
 
 impl Config {
     fn apply_toml(&mut self, mut t: toml::Table) -> Result<(), ConfigError> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
+        decode_toml!(self, line_width, t, Integer, |i| if i > 0 { Some(i as u32) } else { None });
         if let Some((key, _)) = t.into_iter().next() {
             Err(ConfigError::InvalidFieldName(key))
         } else {
