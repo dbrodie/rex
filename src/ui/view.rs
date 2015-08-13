@@ -175,7 +175,7 @@ impl HexEdit {
             let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                is_between(byte_pos as isize, selection_pos / 2, self.cursor_nibble_pos / 2)
+                is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
             } else {
                 false
             };
@@ -393,12 +393,12 @@ impl HexEdit {
                     }
                     cursor_nibble_pos -= 2;
                 }
-                cursor_nibble_pos
+                cursor_nibble_pos / 2
             }
         };
 
-        let del_start = cmp::min(selection_pos, cursor_nibble_pos) / 2;
-        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos) / 2 + 1;
+        let del_start = cmp::min(selection_pos, cursor_nibble_pos / 2);
+        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos / 2) + 1;
 
         if del_stop > self.buffer.len() as isize {
             del_stop -= 1;
@@ -511,7 +511,7 @@ impl HexEdit {
     fn toggle_selection(&mut self) {
         match self.selection_start {
             Some(_) => self.selection_start = None,
-            None => self.selection_start = Some(self.cursor_nibble_pos)
+            None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
         let st = format!("selection = {:?}", self.selection_start);
         self.status(st.clone());
@@ -542,8 +542,8 @@ impl HexEdit {
         let (start, stop) = match self.selection_start {
             None => { return None; },
             Some(selection_pos) => {
-                (cmp::min(selection_pos, self.cursor_nibble_pos) / 2,
-                 cmp::max(selection_pos, self.cursor_nibble_pos) / 2)
+                (cmp::min(selection_pos, self.cursor_nibble_pos / 2),
+                 cmp::max(selection_pos, self.cursor_nibble_pos / 2))
             }
         };
 
