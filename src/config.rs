@@ -110,16 +110,21 @@ impl Config {
         }
     }
 
+    pub fn set_from_string(&mut self, set_line: &str) -> Result<(), ConfigError> {
+        let mut parser = toml::Parser::new(&set_line);
+        if let Some(table) = parser.parse() {
+            return self.apply_toml(table);
+        }
+        Err(ConfigError::TomlParserErrors(parser.errors))
+    }
+
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
         let mut s = String::new();
         let mut f = try!(File::open(path));
         try!(f.read_to_string(&mut s));
-        let mut parser =  toml::Parser::new(&s);
-        if let Some(table) = parser.parse() {
-            let mut config: Config = Default::default();
-            return config.apply_toml(table).map(|_| config);
-        }
-        Err(ConfigError::TomlParserErrors(parser.errors))
+        let mut config: Config = Default::default();
+        try!(config.set_from_string(&s));
+        Ok(config)
     }
 
     fn get_config_path() -> PathBuf {
