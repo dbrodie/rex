@@ -28,6 +28,7 @@ use config::Config;
 static USAGE: &'static str = "
 Usage: hyksa [options] [-C CONF... FILE]
        hyksa --help
+       hyksa --help-config
 
 Options:
     -h, --help                  Show this help message
@@ -37,6 +38,7 @@ Options:
 
 #[derive(RustcDecodable, Debug)]
 struct Args {
+    flag_help_config: bool,
     arg_FILE: Option<String>,
     flag_config: Option<String>,
     flag_C: Vec<String>,
@@ -51,6 +53,11 @@ fn main() {
     let args: Args = Docopt::new(USAGE).and_then(
         |d| d.decode()).unwrap_or_else(
         |e| e.exit());
+
+    if args.flag_help_config {
+        println!("{}", Config::get_config_usage());
+        process::exit(0);
+    }
 
     let config_res = if let Some(config_filename) = args.flag_config {
         Config::from_file(config_filename)

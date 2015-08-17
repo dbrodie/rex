@@ -99,6 +99,18 @@ macro_rules! decode_toml {
 }
 
 impl Config {
+    pub fn get_config_usage() -> &'static str {
+        "The supported configuration options with their default values:
+    show_ascii=true        Shows an ascii representation in the right hand side
+    show_linenum=true      Shows the byte offset in the left hand side
+    line_width=0           The number of bytes per line, 0 meaning auto-wrap
+
+The configuration can be set in the hyksa.conf file located in the
+$XDG_CONFIG_HOME path (usually, ~/.config/hyksa/hyksa.conf). Additionally,
+properties can be set on the commandline as hyksa -C show_ascii=false.
+"
+    }
+
     fn apply_toml(&mut self, mut t: toml::Table) -> Result<(), ConfigError> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
