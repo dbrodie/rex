@@ -105,9 +105,9 @@ impl Config {
     show_linenum=true      Shows the byte offset in the left hand side
     line_width=0           The number of bytes per line, 0 meaning auto-wrap
 
-The configuration can be set in the hyksa.conf file located in the
-$XDG_CONFIG_HOME path (usually, ~/.config/hyksa/hyksa.conf). Additionally,
-properties can be set on the commandline as hyksa -C show_ascii=false.
+The configuration can be set in the rex.conf file located in the
+$XDG_CONFIG_HOME path (usually, ~/.config/rex/rex.conf). Additionally,
+properties can be set on the commandline as rex -C show_ascii=false.
 "
     }
 
@@ -144,7 +144,7 @@ properties can be set on the commandline as hyksa -C show_ascii=false.
         p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
                 |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
             ));
-        p.join("hyksa").join("hyksa.conf")
+        p.join("rex").join("rex.conf")
     }
 
     pub fn open_default() -> Result<Config, ConfigError> {

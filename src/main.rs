@@ -26,9 +26,9 @@ use ui::view::HexEdit;
 use config::Config;
 
 static USAGE: &'static str = "
-Usage: hyksa [options] [-C CONF... FILE]
-       hyksa --help
-       hyksa --help-config
+Usage: rex [options] [-C CONF... FILE]
+       rex --help
+       rex --help-config
 
 Options:
     -h, --help                  Show this help message
