@@ -1,8 +1,10 @@
 
 use std::default::Default;
 use std::path::{Path, PathBuf};
+use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::ErrorKind;
 use std::env;
 use std::io::Read;
 use std::fmt;
@@ -148,6 +150,11 @@ properties can be set on the commandline as rex -C show_ascii=false.
     }
 
     pub fn open_default() -> Result<Config, ConfigError> {
-        Config::from_file(Config::get_config_path())
+        let config_path = Config::get_config_path();
+        match fs::metadata(config_path) {
+            Ok(_) => Config::from_file(Config::get_config_path()),
+            Err(ref err) if err.kind() == ErrorKind::NotFound => Ok(Default::default()),
+            Err(err) => Err(err.into()),
+        }
     }
 }
