@@ -1,7 +1,12 @@
 [package]
 name = "rex"
 version = "0.1.0"
-authors = ["daniel"]
+authors = ["dbrodie@gmail.com"]
+description = "A lean hex editor"
+keywords = ["hex", "editor"]
+repository = "https://github.com/dbrodie/rex"
+license = "MIT"
+readme = "README.md"
 
 [dependencies]
 rustbox = "0.6.2"
