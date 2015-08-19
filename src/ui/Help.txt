@@ -1,4 +1,4 @@
-Welcome to Hyksa!
+Welcome to Rex!
 Your friendly neighborhood hex editor.
 
 Here are the basic keys that used for now:

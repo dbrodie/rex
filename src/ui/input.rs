@@ -19,6 +19,8 @@ impl Input {
             Key::Down => Some(HexEditActions::MoveDown),
             Key::PageUp => Some(HexEditActions::MovePageUp),
             Key::PageDown => Some(HexEditActions::MovePageDown),
+            Key::Home => Some(HexEditActions::MoveToFirstColumn),
+            Key::End => Some(HexEditActions::MoveToLastColumn),
             Key::Backspace => Some(HexEditActions::DeleteWithMove),
             Key::Delete => Some(HexEditActions::Delete),
             Key::Tab => Some(HexEditActions::SwitchView),
