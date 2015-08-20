@@ -44,6 +44,8 @@ pub enum HexEditActions {
     MoveDown,
     MovePageUp,
     MovePageDown,
+    MoveToFirstColumn,
+    MoveToLastColumn,
     Delete,
     DeleteWithMove,
     CopySelection,
@@ -611,6 +613,15 @@ impl HexEdit {
             HexEditActions::MovePageDown => {
                 let t = (self.get_bytes_per_screen() - self.get_line_width()) / 2 * 2;
                 self.move_cursor(t)
+            }
+            HexEditActions::MoveToFirstColumn => {
+                let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
+                self.move_cursor(-pos_in_line)
+            }
+            HexEditActions::MoveToLastColumn => {
+                let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
+                let i = self.get_line_width()*2 - 2 - pos_in_line;
+                self.move_cursor(i);
             }
 
             // UndoAction::Delete
