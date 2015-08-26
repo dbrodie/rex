@@ -4,6 +4,7 @@ extern crate gag;
 extern crate toml;
 extern crate itertools;
 extern crate docopt;
+extern crate rex_utils;
 
 use std::path::Path;
 use std::error::Error;
@@ -19,7 +20,6 @@ use gag::Hold;
 mod config;
 mod ui;
 mod buffer;
-mod util;
 mod segment;
 
 use ui::view::HexEdit;

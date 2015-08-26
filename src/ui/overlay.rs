@@ -2,9 +2,11 @@ use std::iter;
 use std::cmp;
 use std::str::Lines;
 use std::slice::Iter;
-use util::{string_with_repeat, IteratorOptionalExt};
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
+
+use rex_utils;
+use rex_utils::iter_optional::IterOptionalExt;
 
 use super::common::{Rect, Canceled};
 use super::RustBoxEx::{RustBoxEx, Style};
@@ -105,7 +107,7 @@ impl OverlayText {
             // Clean the line
 
             rb.print_style(area.left as usize, (area.top + i as isize) as usize, Style::Default,
-                &string_with_repeat(' ', (area.width) as usize));
+                &rex_utils::string_with_repeat(' ', (area.width) as usize));
 
             // And draw the text if there is one
             if let Some(line) = opt_line {

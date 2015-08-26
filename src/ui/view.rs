@@ -2,14 +2,13 @@ use std::cmp;
 use std::path::Path;
 use std::path::PathBuf;
 use std::iter;
-use util::{string_with_repeat, is_between};
 use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
-
+use rex_utils;
 use super::super::buffer::Buffer;
 use super::super::segment::Segment;
 use super::super::config::Config;
@@ -177,7 +176,7 @@ impl HexEdit {
             let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
+                rex_utils::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
             } else {
                 false
             };
@@ -268,7 +267,7 @@ impl HexEdit {
     }
 
     fn draw_statusbar(&self, rb: &RustBox) {
-        rb.print_style(0, rb.height() - 1, Style::StatusBar, &string_with_repeat(' ', rb.width()));
+        rb.print_style(0, rb.height() - 1, Style::StatusBar, &rex_utils::string_with_repeat(' ', rb.width()));
         if let Some(ref status_line) = self.status_log.last() {
             rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
         }
