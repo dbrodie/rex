@@ -1,8 +1,7 @@
 use std::fmt;
 use std::ops;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
-
-use super::util;
+use itertools;
 
 // This is useful til the RangeArgument is made stable
 trait FromRange {
@@ -249,7 +248,7 @@ impl Segment {
     /// Find a slice from a certain index and onward
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
         for i in from..self.len() {
-            if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
+            if itertools::equal(self.iter_range(i..i+needle.len()), needle.iter()) {
                 return Some(i);
             }
         }

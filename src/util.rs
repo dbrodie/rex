@@ -11,18 +11,6 @@ pub fn slice_set<T: Clone>(dest: &mut [T], src: &[T]) {
     }
 }
 
-pub fn iter_equals<A: Eq, T: Iterator<Item = A>, U: Iterator<Item = A>>(mut a: T,
-                                                                        mut b: U)
-                                                                        -> bool {
-    loop {
-        match (a.next(), b.next()) {
-            (None, None) => return true,
-            (None, _) | (_, None) => return false,
-            (Some(x), Some(y)) => if x != y { return false },
-        }
-    }
-}
-
 pub fn string_with_repeat(c: char, n: usize) -> String {
     let v: Vec<_> = repeat(c as u8).take(n).collect();
     String::from_utf8(v).unwrap()
