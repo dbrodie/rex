@@ -1,4 +1,7 @@
 use std::cmp;
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::iter;
@@ -9,7 +12,6 @@ use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
-use super::super::buffer::Buffer;
 use super::super::segment::Segment;
 use super::super::config::Config;
 
@@ -308,20 +310,23 @@ impl HexEdit {
     }
 
     pub fn open(&mut self, path: &Path) {
-        match Segment::from_path(path) {
-            Ok(buf) => {
-                self.buffer = buf;
-                self.cur_path = Some(PathBuf::from(path));
-                self.reset();
-            }
-            Err(e) => {
-                self.status(format!("ERROR: {}", e.description()));
-            }
+        let mut v = vec!();
+        if let Err(e) = File::open(path).and_then(|mut f| f.read_to_end(&mut v)) {
+            self.status(format!("ERROR: {}", e.description()));
+            return;
         }
+        self.buffer = Segment::from_vec(v);
+        self.cur_path = Some(PathBuf::from(path));
+        self.reset();
     }
 
     pub fn save(&mut self, path: &Path) {
-        match self.buffer.save(path) {
+        let result = File::create(path)
+            .and_then(|mut f| self.buffer.iter_slices()
+                      .fold(Ok(()), |res, val| res
+                            .and_then(|_| f.write_all(val))));
+
+        match result {
             Ok(_) => {
                 self.cur_path = Some(PathBuf::from(path));
             }
@@ -350,15 +355,15 @@ impl HexEdit {
                 begin_region = offset;
                 end_region = end;
 
-                let res = self.buffer.remove(offset as usize, end as usize);
+                let res = self.buffer.move_out(offset as usize..end as usize);
                 if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
             }
             UndoAction::Write(offset, buf) => {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
-                let orig_data = self.buffer.read(offset as usize, buf.len());
-                self.buffer.write(offset as usize, &buf);
+                let orig_data = self.buffer.copy_out(offset as usize..buf.len());
+                self.buffer.copy_in(offset as usize, &buf);
                 if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
             }
         }
@@ -524,9 +529,9 @@ impl HexEdit {
     }
 
     fn find_buf(&mut self, needle: &[u8]) {
-        let found_pos = match self.buffer.find_from((self.cursor_nibble_pos / 2) as usize, needle) {
+        let found_pos = match self.buffer.find_slice_from((self.cursor_nibble_pos / 2) as usize, needle) {
             None => {
-                self.buffer.find_from(0, needle)
+                self.buffer.find_slice_from(0, needle)
             }
             a => a
         };
@@ -548,7 +553,7 @@ impl HexEdit {
             }
         };
 
-        let data = self.buffer.read(start as usize, (stop - start + 1) as usize);
+        let data = self.buffer.copy_out(start as usize..stop as usize);
         let data_len = data.len();
 
         self.clipboard = Some(data);

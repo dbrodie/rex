@@ -214,12 +214,13 @@ impl Segment {
     }
 
     /// Moves data between start_ & end_offset out of the segment
-    pub fn move_out_slice(&mut self, start_offset: usize, end_offset: usize) -> Vec<u8> {
+    pub fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+        let (from, to) = range.from_range(self);
         // TODO: Convert to drain when that settles
-        assert!(start_offset <= end_offset);
+        assert!(from <= to);
         let mut res = Vec::new();
-        let mut index = self.pos_to_index(start_offset, false);
-        let num_elem = end_offset - start_offset;
+        let mut index = self.pos_to_index(from, false);
+        let num_elem = to - from;
 
         for _ in 0..num_elem {
             let c = self.vecs[index.outer].remove(index.inner);
@@ -239,6 +240,20 @@ impl Segment {
 
         res
     }
+
+    pub fn copy_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+        let (from, to) = range.from_range(self);
+
+        // TODO: Make this use direct cocpy rather than iterators
+        self.iter_range(from..to).map(|x| *x).collect::<Vec<u8>>()
+    }
+
+    pub fn copy_in(&mut self, offset: usize, val: &[u8]) {
+        for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
+            *d = s.clone();
+        }
+    }
+
 
     /// Find a slice inside the segment
     pub fn find_slice(&self, needle: &[u8]) -> Option<usize> {

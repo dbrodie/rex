@@ -19,7 +19,6 @@ use gag::Hold;
 #[macro_use] mod signals;
 mod config;
 mod ui;
-mod buffer;
 mod segment;
 
 use ui::view::HexEdit;

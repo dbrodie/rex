@@ -5,7 +5,6 @@ use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
-use super::super::buffer::Buffer;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 
