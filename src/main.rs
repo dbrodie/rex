@@ -4,7 +4,7 @@ extern crate gag;
 extern crate toml;
 extern crate itertools;
 extern crate docopt;
-extern crate rex_utils;
+#[macro_use] extern crate rex_utils;
 
 use std::path::Path;
 use std::error::Error;
@@ -16,7 +16,6 @@ use rustbox::{RustBox, Event, InputMode, InitOptions};
 use rustbox::keyboard::Key;
 use gag::Hold;
 
-#[macro_use] mod signals;
 mod config;
 mod ui;
 

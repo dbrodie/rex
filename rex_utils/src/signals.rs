@@ -1,5 +1,6 @@
 #[macro_use]
 
+#[macro_export]
 macro_rules! ident_zip_signal {
     ( () ; ( $($id: ident,)* ) ; ( $($idr:ident: $tyr:ty,)* ) ) => {
         pub fn signal( &mut self, $($idr : $tyr,)* ) {
@@ -13,6 +14,7 @@ macro_rules! ident_zip_signal {
     }
 }
 
+#[macro_export]
 macro_rules! signal_decl {
     ( $name:ident($($t:ty ),*) ) => {
 
@@ -44,6 +46,7 @@ macro_rules! signal_decl {
     }
 }
 
+#[macro_export]
 macro_rules! signal {
     ( $sr:ident with |$obj:ident, $($id:ident),*| $bl:expr ) => ( {
         let sender_clone = $sr.sender.clone();
@@ -53,6 +56,7 @@ macro_rules! signal {
     })
 }
 
+#[macro_export]
 macro_rules! signalreceiver_decl {
     ( $name: ident($t:ty) ) => {
         struct $name {
