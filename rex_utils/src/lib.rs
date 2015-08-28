@@ -7,6 +7,7 @@ use std::iter;
 
 pub mod iter_optional;
 pub mod split_vec;
+pub mod rect;
 
 /// Create a string with a repeated character.
 ///

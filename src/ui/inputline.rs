@@ -5,11 +5,12 @@ use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
+use rex_utils::rect::Rect;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 
 
-use super::common::{Rect, Canceled};
+use super::common::Canceled;
 
 pub enum BaseInputLineActions {
     Edit(char),

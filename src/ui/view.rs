@@ -13,9 +13,10 @@ use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
+use rex_utils::rect::Rect;
 use super::super::config::Config;
 
-use super::common::{Rect, u8_to_hex};
+use super::common::u8_to_hex;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
