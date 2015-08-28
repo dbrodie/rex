@@ -4,40 +4,40 @@ use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use itertools;
 
 // This is useful til the RangeArgument is made stable
-trait FromRange {
+pub trait FromRange {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize);
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize);
 }
 
 impl FromRange for RangeFull {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize) {
         return (0, seg.len());
     }
 }
 
 impl FromRange for Range<usize> {
     #[inline(always)]
-    fn from_range(&self, _: &Segment) -> (usize, usize) {
+    fn from_range(&self, _: &SplitVec) -> (usize, usize) {
         return (self.start, self.end);
     }
 }
 
 impl FromRange for RangeFrom<usize> {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize) {
         return (self.start, seg.len());
     }
 }
 
 impl FromRange for RangeTo<usize> {
     #[inline(always)]
-    fn from_range(&self, _: &Segment) -> (usize, usize) {
+    fn from_range(&self, _: &SplitVec) -> (usize, usize) {
         return (0, self.end);
     }
 }
 
-pub struct Segment {
+pub struct SplitVec {
     vecs: Vec<Vec<u8>>,
     length: usize,
 }
@@ -49,46 +49,46 @@ struct Index {
 }
 
 pub struct Items<'a> {
-    seg: &'a Segment,
+    seg: &'a SplitVec,
     index: Index,
     num_elem: Option<usize>,
 }
 
 pub struct MutItems<'a> {
-    seg: &'a mut Segment,
+    seg: &'a mut SplitVec,
     index: Index,
     num_elem: Option<usize>,
 }
 
 pub struct Slices<'a> {
-    seg: &'a Segment,
+    seg: &'a SplitVec,
     outer: usize,
 }
 
 static MIN_BLOCK_SIZE: usize = 1024 * 1024;
 static MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 
-impl Segment {
+impl SplitVec {
     /// Create a new, empty segment
-    pub fn new() -> Segment {
-        Segment {
+    pub fn new() -> SplitVec {
+        SplitVec {
             vecs: Vec::new(),
             length: 0,
         }
     }
 
     /// Create a segment by consuming a vec as the initial data vector
-    pub fn from_vec(values: Vec<u8>) -> Segment {
+    pub fn from_vec(values: Vec<u8>) -> SplitVec {
         let len = values.len();
-        Segment {
+        SplitVec {
             vecs: vec!(values),
             length: len,
         }
     }
 
     /// Create a segment by copying in values from a slice
-    pub fn from_slice(values: &[u8]) -> Segment {
-        Segment {
+    pub fn from_slice(values: &[u8]) -> SplitVec {
+        SplitVec {
             vecs: vec!(values.into()),
             length: values.len(),
         }
@@ -276,7 +276,7 @@ impl Segment {
     }
 }
 
-impl ops::Index<usize> for Segment {
+impl ops::Index<usize> for SplitVec {
     type Output = u8;
     fn index<'a>(&'a self, _index: usize) -> &'a u8 {
         let idx = self.pos_to_index(_index, false);
@@ -284,14 +284,14 @@ impl ops::Index<usize> for Segment {
     }
 }
 
-impl ops::IndexMut<usize> for Segment {
+impl ops::IndexMut<usize> for SplitVec {
     fn index_mut<'a>(&'a mut self, _index: usize) -> &'a mut u8 {
         let idx = self.pos_to_index(_index, false);
         &mut self.vecs[idx.outer][idx.inner]
     }
 }
 
-impl fmt::Debug for Segment {
+impl fmt::Debug for SplitVec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.vecs.fmt(f)
     }
@@ -369,7 +369,7 @@ impl<'a> Iterator for Slices<'a> {
 #[test]
 fn test_small_segment() {
     let size = 1024;
-    let mut seg = Segment::from_vec(vec![1, 2, 3, 4, 5]);
+    let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
     assert_eq!(Some(4), seg.find_slice(&[5]));
 
     let seg_len = seg.len();
@@ -382,7 +382,7 @@ fn test_small_segment() {
 fn test_large_segment() {
     let big_size = 4*1024*1024;
     let small_size = 1024;
-    let mut seg = Segment::from_vec(vec![0; big_size]);
+    let mut seg = SplitVec::from_vec(vec![0; big_size]);
 
     seg.insert(big_size/2, &vec![1 as u8; small_size]);
 

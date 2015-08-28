@@ -12,7 +12,7 @@ use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
-use super::super::segment::Segment;
+use rex_utils::split_vec::SplitVec;
 use super::super::config::Config;
 
 use super::common::{Rect, u8_to_hex};
@@ -66,7 +66,7 @@ pub enum HexEditActions {
 signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
-    buffer: Segment,
+    buffer: SplitVec,
     config: Config,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
@@ -89,7 +89,7 @@ pub struct HexEdit {
 impl HexEdit {
     pub fn new(config: Config) -> HexEdit {
         HexEdit {
-            buffer: Segment::new(),
+            buffer: SplitVec::new(),
             config: config,
             rect: Default::default(),
             cursor_nibble_pos: 0,
@@ -315,7 +315,7 @@ impl HexEdit {
             self.status(format!("ERROR: {}", e.description()));
             return;
         }
-        self.buffer = Segment::from_vec(v);
+        self.buffer = SplitVec::from_vec(v);
         self.cur_path = Some(PathBuf::from(path));
         self.reset();
     }
