@@ -34,6 +34,7 @@ Options:
 ";
 
 #[derive(RustcDecodable, Debug)]
+#[allow(non_snake_case)]
 struct Args {
     flag_help_config: bool,
     arg_FILE: Option<String>,
