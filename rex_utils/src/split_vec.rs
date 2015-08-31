@@ -1,44 +1,53 @@
+//! Provides a Vec-like container for large sizes that is split to blocks.
+
 use std::fmt;
 use std::ops;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use itertools;
 
-use super::util;
-
-// This is useful til the RangeArgument is made stable
-trait FromRange {
+/// A generic trait over Rust's built types.
+pub trait FromRange {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize);
+    #[doc(hidden)]
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize);
 }
 
 impl FromRange for RangeFull {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize) {
         return (0, seg.len());
     }
 }
 
 impl FromRange for Range<usize> {
     #[inline(always)]
-    fn from_range(&self, _: &Segment) -> (usize, usize) {
+    fn from_range(&self, _: &SplitVec) -> (usize, usize) {
         return (self.start, self.end);
     }
 }
 
 impl FromRange for RangeFrom<usize> {
     #[inline(always)]
-    fn from_range(&self, seg: &Segment) -> (usize, usize) {
+    fn from_range(&self, seg: &SplitVec) -> (usize, usize) {
         return (self.start, seg.len());
     }
 }
 
 impl FromRange for RangeTo<usize> {
     #[inline(always)]
-    fn from_range(&self, _: &Segment) -> (usize, usize) {
+    fn from_range(&self, _: &SplitVec) -> (usize, usize) {
         return (0, self.end);
     }
 }
 
-pub struct Segment {
+/// A Vec for large sizes split into smaller blocks.
+///
+/// Splits a large continuos memory into block sizes to allow insertion/deletion to have an
+/// upper bound, based on the block size. It is implemented as a Vec of Vec's, where each Vec
+/// has a m inimum and maximum block size. As data is inserted and deleted, from any location,
+/// SplitVec will split up and merge the blocks to try and stay between those minimum and maximum
+/// block sizes.
+pub struct SplitVec {
     vecs: Vec<Vec<u8>>,
     length: usize,
 }
@@ -49,53 +58,56 @@ struct Index {
     inner: usize,
 }
 
+/// An iterator over SplitVec contents.
 pub struct Items<'a> {
-    seg: &'a Segment,
+    seg: &'a SplitVec,
     index: Index,
     num_elem: Option<usize>,
 }
 
+/// A mutable iterator over SplitVec contents.
 pub struct MutItems<'a> {
-    seg: &'a mut Segment,
+    seg: &'a mut SplitVec,
     index: Index,
     num_elem: Option<usize>,
 }
 
+/// An iterator over the blocks in SplitVec.
 pub struct Slices<'a> {
-    seg: &'a Segment,
+    seg: &'a SplitVec,
     outer: usize,
 }
 
 static MIN_BLOCK_SIZE: usize = 1024 * 1024;
 static MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 
-impl Segment {
-    /// Create a new, empty segment
-    pub fn new() -> Segment {
-        Segment {
+impl SplitVec {
+    /// Create a new, empty SplitVec
+    pub fn new() -> SplitVec {
+        SplitVec {
             vecs: Vec::new(),
             length: 0,
         }
     }
 
-    /// Create a segment by consuming a vec as the initial data vector
-    pub fn from_vec(values: Vec<u8>) -> Segment {
+    /// Create a SplitVec by consuming a vec as the initial data vector
+    pub fn from_vec(values: Vec<u8>) -> SplitVec {
         let len = values.len();
-        Segment {
+        SplitVec {
             vecs: vec!(values),
             length: len,
         }
     }
 
-    /// Create a segment by copying in values from a slice
-    pub fn from_slice(values: &[u8]) -> Segment {
-        Segment {
+    /// Create a SplitVec by copying in values from a slice
+    pub fn from_slice(values: &[u8]) -> SplitVec {
+        SplitVec {
             vecs: vec!(values.into()),
             length: values.len(),
         }
     }
 
-    /// Return the length of the segment
+    /// Return the length.
     pub fn len(&self) -> usize {
         self.length
     }
@@ -158,7 +170,8 @@ impl Segment {
         }
     }
 
-    /// Provide an iterator over continuous meory slices
+    /// Provide an iterator over continuous memory slices
+    ///
     /// This is useful for doing an efficient save to disk
     pub fn iter_slices<'a>(&'a self) -> Slices<'a> {
         Slices {
@@ -197,7 +210,7 @@ impl Segment {
         }
     }
 
-    /// insert all values from a slice into the segment
+    /// insert all values from a slice at an offset.
     pub fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
@@ -214,13 +227,14 @@ impl Segment {
         self.calc_len();
     }
 
-    /// Moves data between start_ & end_offset out of the segment
-    pub fn move_out_slice(&mut self, start_offset: usize, end_offset: usize) -> Vec<u8> {
+    /// Moves data out from the supplied range.
+    pub fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+        let (from, to) = range.from_range(self);
         // TODO: Convert to drain when that settles
-        assert!(start_offset <= end_offset);
+        assert!(from <= to);
         let mut res = Vec::new();
-        let mut index = self.pos_to_index(start_offset, false);
-        let num_elem = end_offset - start_offset;
+        let mut index = self.pos_to_index(from, false);
+        let num_elem = to - from;
 
         for _ in 0..num_elem {
             let c = self.vecs[index.outer].remove(index.inner);
@@ -241,7 +255,22 @@ impl Segment {
         res
     }
 
-    /// Find a slice inside the segment
+    /// Produce of copy of the supplied range
+    pub fn copy_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+        let (from, to) = range.from_range(self);
+
+        // TODO: Make this use direct cocpy rather than iterators
+        self.iter_range(from..to).map(|x| *x).collect::<Vec<u8>>()
+    }
+
+    /// Copy data from a slice in.
+    pub fn copy_in(&mut self, offset: usize, val: &[u8]) {
+        for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
+            *d = s.clone();
+        }
+    }
+
+    /// Find a slice.
     pub fn find_slice(&self, needle: &[u8]) -> Option<usize> {
         self.find_slice_from(0, needle)
     }
@@ -249,7 +278,7 @@ impl Segment {
     /// Find a slice from a certain index and onward
     pub fn find_slice_from(&self, from: usize, needle: &[u8]) -> Option<usize> {
         for i in from..self.len() {
-            if util::iter_equals(self.iter_range(i..i+needle.len()), needle.iter()) {
+            if itertools::equal(self.iter_range(i..i+needle.len()), needle.iter()) {
                 return Some(i);
             }
         }
@@ -262,7 +291,7 @@ impl Segment {
     }
 }
 
-impl ops::Index<usize> for Segment {
+impl ops::Index<usize> for SplitVec {
     type Output = u8;
     fn index<'a>(&'a self, _index: usize) -> &'a u8 {
         let idx = self.pos_to_index(_index, false);
@@ -270,14 +299,14 @@ impl ops::Index<usize> for Segment {
     }
 }
 
-impl ops::IndexMut<usize> for Segment {
+impl ops::IndexMut<usize> for SplitVec {
     fn index_mut<'a>(&'a mut self, _index: usize) -> &'a mut u8 {
         let idx = self.pos_to_index(_index, false);
         &mut self.vecs[idx.outer][idx.inner]
     }
 }
 
-impl fmt::Debug for Segment {
+impl fmt::Debug for SplitVec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.vecs.fmt(f)
     }
@@ -353,9 +382,9 @@ impl<'a> Iterator for Slices<'a> {
 }
 
 #[test]
-fn test_small_segment() {
+fn test_small_splitvec() {
     let size = 1024;
-    let mut seg = Segment::from_vec(vec![1, 2, 3, 4, 5]);
+    let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
     assert_eq!(Some(4), seg.find_slice(&[5]));
 
     let seg_len = seg.len();
@@ -365,10 +394,10 @@ fn test_small_segment() {
 }
 
 #[test]
-fn test_large_segment() {
+fn test_large_splitvec() {
     let big_size = 4*1024*1024;
     let small_size = 1024;
-    let mut seg = Segment::from_vec(vec![0; big_size]);
+    let mut seg = SplitVec::from_vec(vec![0; big_size]);
 
     seg.insert(big_size/2, &vec![1 as u8; small_size]);
 

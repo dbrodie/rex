@@ -1,16 +1,16 @@
 use std::str;
 use rustc_serialize::hex::FromHex;
 use std::path::PathBuf;
-use util::string_with_repeat;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
-use super::super::buffer::Buffer;
+use rex_utils;
+use rex_utils::rect::Rect;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 
 
-use super::common::{Rect, Canceled};
+use super::common::Canceled;
 
 pub enum BaseInputLineActions {
     Edit(char),
@@ -82,7 +82,7 @@ impl InputLine for BaseInputLine {
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
-                 &string_with_repeat(' ', area.width as usize));
+                 &rex_utils::string_with_repeat(' ', area.width as usize));
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
         if has_focus {
