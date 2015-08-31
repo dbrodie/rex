@@ -1,8 +1,9 @@
+//! A trait extension on iterators that allows optionally adding an iterator adaptor to an iterator.
 use std::iter::Iterator;
 
 /// An iterator adaptor that returns elements from one iterator or another based on a conditional
 ///
-/// See [*.optional()*](trait.Ite.html#method.interleave) for more information.
+/// See [*.optional()*](trait.IterOptionalExt.html#method.optional) for more information.
 pub enum IterOptional<T, F> {
     TrueIter(T),
     FalseIter(F)
@@ -33,11 +34,11 @@ pub trait IterOptionalExt : Iterator {
     /// use rex_utils::iter_optional::IterOptionalExt;
     ///
     /// let src_iter = vec![1, 2, 3].into_iter();
-    /// let optional_iterator = src_iter.optional(true, |i| i.map(|x| x*2), |i| i);
+    /// let optional_iterator = src_iter.optional(true, |iter| iter.map(|x| x*2), |iter| iter);
     /// assert_eq!(optional_iterator.collect::<Vec<_>>(), [2, 4, 6]);
     ///
     /// let src_iter = vec![1, 2, 3].into_iter();
-    /// let optional_iterator = src_iter.optional(false, |i| i.map(|x| x*2), |i| i);
+    /// let optional_iterator = src_iter.optional(false, |iter| iter.map(|x| x*2), |iter| iter);
     /// assert_eq!(optional_iterator.collect::<Vec<_>>(), [1, 2, 3]);
     /// ```
     fn optional<T, F, G, H>(self, conditional: bool, true_func: G, false_func: H) -> IterOptional<T, F>
