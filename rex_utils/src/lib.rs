@@ -5,6 +5,7 @@
 extern crate itertools;
 
 use std::iter;
+use std::char;
 
 pub mod iter_optional;
 pub mod split_vec;
@@ -40,4 +41,22 @@ pub fn string_with_repeat(c: char, n: usize) -> String {
 pub fn is_between<N: PartialOrd>(num: N, a: N, b: N) -> bool {
     let (smaller, larger) = if a < b { (a, b) } else { (b, a) };
     (smaller <= num) && (num <= larger)
+}
+
+/// Converts a byte to its hex representation
+///
+/// # Return value
+///
+/// Returns a tuple of the two characters required for the representation, in lowercase.
+///
+/// # Examples
+///
+/// ```
+/// use rex_utils;
+///
+/// assert_eq!(rex_utils::u8_to_hex(0xab), ('a', 'b'));
+/// ```
+pub fn u8_to_hex(b: u8) -> (char, char) {
+    (char::from_digit((b as u32 >> 4) & 0xF, 16).unwrap(),
+    char::from_digit(b as u32 & 0xF, 16).unwrap())
 }

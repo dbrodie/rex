@@ -16,7 +16,6 @@ use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
 use super::super::config::Config;
 
-use super::common::u8_to_hex;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
@@ -186,7 +185,7 @@ impl HexEdit {
 
             // Now we draw the nibble view
             let hex_chars = if let Some(&byte) = maybe_byte {
-                u8_to_hex(byte)
+                rex_utils::u8_to_hex(byte)
             } else {
                 (' ', ' ')
             };
