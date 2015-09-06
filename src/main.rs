@@ -25,7 +25,6 @@ use config::Config;
 static USAGE: &'static str = "
 Usage: rex [options] [-C CONF... FILE]
        rex --help
-       rex --help-config
 
 Options:
     -h, --help                  Show this help message
@@ -36,7 +35,7 @@ Options:
 #[derive(RustcDecodable, Debug)]
 #[allow(non_snake_case)]
 struct Args {
-    flag_help_config: bool,
+    flag_help: bool,
     arg_FILE: Option<String>,
     flag_config: Option<String>,
     flag_C: Vec<String>,
@@ -49,11 +48,13 @@ fn exit_err<E: Error>(msg: &str, error: E) -> ! {
 
 fn main() {
     let args: Args = Docopt::new(USAGE).and_then(
-        |d| d.decode()).unwrap_or_else(
+        |d| d.help(false).decode()).unwrap_or_else(
         |e| e.exit());
 
-    if args.flag_help_config {
-        println!("{}", Config::get_config_usage());
+    if args.flag_help {
+        println!("{}", USAGE.trim());
+        println!("");
+        println!("{}", config::Config::get_config_usage().trim());
         process::exit(0);
     }
 
