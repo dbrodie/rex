@@ -8,6 +8,7 @@ use std::iter;
 use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
+use std::borrow::Cow;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -309,10 +310,12 @@ impl HexEdit {
         self.draw_statusbar(rb);
     }
 
-    fn status(&mut self, st: String) {
-        self.status_log.push(st);
-        self.show_last_status = true;
-    }
+    fn status<S: Into<Cow<'static, str>> + ?Sized>(&mut self, st: S) {
+            self.show_last_status = true;
+            let cow: Cow<'static, str> = st.into();
+            self.status_log.push(format!("{}", &cow));
+        }
+
     fn clear_status(&mut self) {
         self.show_last_status = false;
     }
@@ -422,7 +425,7 @@ impl HexEdit {
         }
 
         if self.buffer.len() == 0 {
-            self.status(format!("Nothing to delete"));
+            self.status("Nothing to delete");
             return;
         }
 
@@ -527,8 +530,8 @@ impl HexEdit {
             Some(_) => self.selection_start = None,
             None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
-        let st = format!("selection = {:?}", self.selection_start);
-        self.status(st.clone());
+        let selection_start = self.selection_start; // Yay! Lifetimes!
+        self.status(format!("selection = {:?}", selection_start));
     }
 
     fn goto(&mut self, pos: isize) {
@@ -548,7 +551,7 @@ impl HexEdit {
             self.status(format!("Found at {:?}", pos));
             self.set_cursor((pos * 2) as isize);
         } else {
-            self.status(format!("Nothing found!"));
+            self.status("Nothing found!");
         }
     }
 
@@ -707,7 +710,7 @@ impl HexEdit {
             self.overlay = Some(ot);
         }
         {
-            self.status("Press Esc to return".into());
+            self.status("Press Esc to return");
         }
     }
 
