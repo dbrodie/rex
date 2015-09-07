@@ -102,7 +102,8 @@ macro_rules! decode_toml {
 
 impl Config {
     pub fn get_config_usage() -> &'static str {
-        "The supported configuration options with their default values:
+        "
+The supported configuration options with their default values:
     show_ascii=true        Shows an ascii representation in the right hand side
     show_linenum=true      Shows the byte offset in the left hand side
     line_width=0           The number of bytes per line, 0 meaning auto-wrap
