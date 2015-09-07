@@ -792,15 +792,11 @@ impl HexEdit {
 
         if let Some(ref mut overlay) = self.overlay {
             overlay.input(&self.input, key);
-            return;
-        }
-
-        if let Some(ref mut input_entry) = self.input_entry {
+        } else if let Some(ref mut input_entry) = self.input_entry {
             input_entry.input(&self.input, key);
-            return;
+        } else {
+            self.view_input(key);
         }
-
-        self.view_input(key);
 
         self.process_msgs();
     }

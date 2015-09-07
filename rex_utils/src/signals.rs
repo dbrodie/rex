@@ -210,9 +210,11 @@ macro_rules! signal_decl {
 macro_rules! signal {
     ( $sr:ident with |$obj:ident, $($id:ident),*| $bl:expr ) => ( {
         let sender_clone = $sr.sender.clone();
-        Box::new(move |$($id),*| {sender_clone.send(Box::new(move |$obj|
-            $bl
-        )).unwrap();})
+        Box::new(move |$($id),*| {
+            sender_clone.send(Box::new(move |$obj|
+                $bl
+            )).unwrap();
+        })
     })
 }
 
@@ -237,9 +239,11 @@ macro_rules! signalreceiver_decl {
             }
 
             fn run(&mut self, ss: &mut $t) {
-                match self.receiver.try_recv() {
-                    Ok(mut handler) => handler(ss),
-                    Err(_) => (),
+                loop {
+                    match self.receiver.try_recv() {
+                        Ok(mut handler) => handler(ss),
+                        Err(_) => break,
+                    }
                 }
             }
         }
