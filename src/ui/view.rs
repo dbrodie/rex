@@ -71,6 +71,7 @@ pub struct HexEdit {
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
+    show_last_status: bool,
     data_offset: isize,
     row_offset: isize,
     nibble_active: bool,
@@ -96,6 +97,7 @@ impl HexEdit {
             data_offset: 0,
             row_offset: 0,
             status_log: vec!["Press C-/ for help".to_string()],
+            show_last_status: true,
             nibble_active: true,
             selection_start: None,
             insert_mode: false,
@@ -270,8 +272,10 @@ impl HexEdit {
 
     fn draw_statusbar(&self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &rex_utils::string_with_repeat(' ', rb.width()));
-        if let Some(ref status_line) = self.status_log.last() {
-            rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
+        if self.show_last_status {
+            if let Some(ref status_line) = self.status_log.last() {
+                rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
+            }
         }
 
         let right_status = format!(
@@ -307,6 +311,10 @@ impl HexEdit {
 
     fn status(&mut self, st: String) {
         self.status_log.push(st);
+        self.show_last_status = true;
+    }
+    fn clear_status(&mut self) {
+        self.show_last_status = false;
     }
 
     pub fn open(&mut self, path: &Path) {
@@ -691,6 +699,8 @@ impl HexEdit {
             ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
                 if let Some(ref msg) = opt_msg {
                     obj.status(msg.clone());
+                } else {
+                    obj.clear_status();
                 }
                 obj.overlay = None;
             }));
@@ -708,6 +718,8 @@ impl HexEdit {
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.overlay = None;
         }));
@@ -726,6 +738,8 @@ impl HexEdit {
         gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -744,6 +758,8 @@ impl HexEdit {
         find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -762,6 +778,8 @@ impl HexEdit {
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -780,6 +798,8 @@ impl HexEdit {
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
