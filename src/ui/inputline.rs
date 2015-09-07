@@ -37,7 +37,7 @@ impl BaseInputLine {
     fn new(prefix: String) -> BaseInputLine {
         BaseInputLine {
             prefix: prefix,
-            data: vec!(),
+            data: vec![],
             input_pos: 0,
         }
     }

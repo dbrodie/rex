@@ -94,7 +94,7 @@ impl SplitVec {
     pub fn from_vec(values: Vec<u8>) -> SplitVec {
         let len = values.len();
         SplitVec {
-            vecs: vec!(values),
+            vecs: vec![values],
             length: len,
         }
     }
@@ -102,7 +102,7 @@ impl SplitVec {
     /// Create a SplitVec by copying in values from a slice
     pub fn from_slice(values: &[u8]) -> SplitVec {
         SplitVec {
-            vecs: vec!(values.into()),
+            vecs: vec![values.into()],
             length: values.len(),
         }
     }

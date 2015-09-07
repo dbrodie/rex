@@ -95,7 +95,7 @@ impl HexEdit {
             cursor_nibble_pos: 0,
             data_offset: 0,
             row_offset: 0,
-            status_log: vec!("Press C-/ for help".to_string()),
+            status_log: vec!["Press C-/ for help".to_string()],
             nibble_active: true,
             selection_start: None,
             insert_mode: false,
@@ -310,7 +310,7 @@ impl HexEdit {
     }
 
     pub fn open(&mut self, path: &Path) {
-        let mut v = vec!();
+        let mut v = vec![];
         if let Err(e) = File::open(path).and_then(|mut f| f.read_to_end(&mut v)) {
             self.status(format!("ERROR: {}", e.description()));
             return;
@@ -446,7 +446,7 @@ impl HexEdit {
         };
 
         let byte_offset = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Write(byte_offset, vec!(byte)), true);
+        self.do_action(UndoAction::Write(byte_offset, vec![byte]), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
@@ -457,7 +457,7 @@ impl HexEdit {
         }
 
         let pos_div2 = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(pos_div2, vec!(c * 16)), true);
+        self.do_action(UndoAction::Insert(pos_div2, vec![c * 16]), true);
     }
 
     fn toggle_insert_mode(&mut self) {
@@ -473,9 +473,9 @@ impl HexEdit {
 
         let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
-            self.do_action(UndoAction::Insert(byte_offset, vec!(c)), true);
+            self.do_action(UndoAction::Insert(byte_offset, vec![c]), true);
         } else {
-            self.do_action(UndoAction::Write(byte_offset, vec!(c)), true);
+            self.do_action(UndoAction::Write(byte_offset, vec![c]), true);
         }
     }
 
@@ -802,7 +802,7 @@ impl HexEdit {
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
-        self.rect.height = height as isize - 1;
+        self.rect.height = height as isize - 1;  // Substract 1 for the status line on the bottom
         self.rect.width = width as isize;
     }
 }
