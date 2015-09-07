@@ -8,6 +8,7 @@ use std::iter;
 use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
+use std::borrow::Cow;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -71,6 +72,7 @@ pub struct HexEdit {
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
+    show_last_status: bool,
     data_offset: isize,
     row_offset: isize,
     nibble_active: bool,
@@ -96,6 +98,7 @@ impl HexEdit {
             data_offset: 0,
             row_offset: 0,
             status_log: vec!["Press C-/ for help".to_string()],
+            show_last_status: true,
             nibble_active: true,
             selection_start: None,
             insert_mode: false,
@@ -270,8 +273,10 @@ impl HexEdit {
 
     fn draw_statusbar(&self, rb: &RustBox) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &rex_utils::string_with_repeat(' ', rb.width()));
-        if let Some(ref status_line) = self.status_log.last() {
-            rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
+        if self.show_last_status {
+            if let Some(ref status_line) = self.status_log.last() {
+                rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);
+            }
         }
 
         let right_status = format!(
@@ -305,8 +310,14 @@ impl HexEdit {
         self.draw_statusbar(rb);
     }
 
-    fn status(&mut self, st: String) {
-        self.status_log.push(st);
+    fn status<S: Into<Cow<'static, str>> + ?Sized>(&mut self, st: S) {
+            self.show_last_status = true;
+            let cow: Cow<'static, str> = st.into();
+            self.status_log.push(format!("{}", &cow));
+        }
+
+    fn clear_status(&mut self) {
+        self.show_last_status = false;
     }
 
     pub fn open(&mut self, path: &Path) {
@@ -414,7 +425,7 @@ impl HexEdit {
         }
 
         if self.buffer.len() == 0 {
-            self.status(format!("Nothing to delete"));
+            self.status("Nothing to delete");
             return;
         }
 
@@ -519,8 +530,8 @@ impl HexEdit {
             Some(_) => self.selection_start = None,
             None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
-        let st = format!("selection = {:?}", self.selection_start);
-        self.status(st.clone());
+        let selection_start = self.selection_start; // Yay! Lifetimes!
+        self.status(format!("selection = {:?}", selection_start));
     }
 
     fn goto(&mut self, pos: isize) {
@@ -540,7 +551,7 @@ impl HexEdit {
             self.status(format!("Found at {:?}", pos));
             self.set_cursor((pos * 2) as isize);
         } else {
-            self.status(format!("Nothing found!"));
+            self.status("Nothing found!");
         }
     }
 
@@ -684,15 +695,23 @@ impl HexEdit {
 
     fn start_help(&mut self) {
         let help_text = include_str!("Help.txt");
-        let ref sr = self.signal_receiver.as_mut().unwrap();
-        let mut ot = OverlayText::with_text(help_text.to_string(), false);
-        ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            if let Some(ref msg) = opt_msg {
-                obj.status(msg.clone());
-            }
-            obj.overlay = None;
-        }));
-        self.overlay = Some(ot);
+        // YAY Lifetimes! (This will hopfully be fixed once rust gains MIR/HIR)
+        {
+            let ref sr = self.signal_receiver.as_mut().unwrap();
+            let mut ot = OverlayText::with_text(help_text.to_string(), false);
+            ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+                if let Some(ref msg) = opt_msg {
+                    obj.status(msg.clone());
+                } else {
+                    obj.clear_status();
+                }
+                obj.overlay = None;
+            }));
+            self.overlay = Some(ot);
+        }
+        {
+            self.status("Press Esc to return");
+        }
     }
 
     fn start_logview(&mut self) {
@@ -702,6 +721,8 @@ impl HexEdit {
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.overlay = None;
         }));
@@ -720,6 +741,8 @@ impl HexEdit {
         gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -738,6 +761,8 @@ impl HexEdit {
         find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -756,6 +781,8 @@ impl HexEdit {
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
@@ -774,6 +801,8 @@ impl HexEdit {
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
+            } else {
+                obj.clear_status();
             }
             obj.input_entry = None;
         }));
