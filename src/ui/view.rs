@@ -684,15 +684,21 @@ impl HexEdit {
 
     fn start_help(&mut self) {
         let help_text = include_str!("Help.txt");
-        let ref sr = self.signal_receiver.as_mut().unwrap();
-        let mut ot = OverlayText::with_text(help_text.to_string(), false);
-        ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
-            if let Some(ref msg) = opt_msg {
-                obj.status(msg.clone());
-            }
-            obj.overlay = None;
-        }));
-        self.overlay = Some(ot);
+        // YAY Lifetimes! (This will hopfully be fixed once rust gains MIR/HIR)
+        {
+            let ref sr = self.signal_receiver.as_mut().unwrap();
+            let mut ot = OverlayText::with_text(help_text.to_string(), false);
+            ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+                if let Some(ref msg) = opt_msg {
+                    obj.status(msg.clone());
+                }
+                obj.overlay = None;
+            }));
+            self.overlay = Some(ot);
+        }
+        {
+            self.status("Press Esc to return".into());
+        }
     }
 
     fn start_logview(&mut self) {
