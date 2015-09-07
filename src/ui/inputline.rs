@@ -61,11 +61,11 @@ impl InputLine for BaseInputLine {
                 }
             }
             BaseInputLineActions::Edit(ch) => {
-                if ch.len_utf8() == 1 && ch.is_alphanumeric() {
+                if ch.len_utf8() == 1 {
                     self.data.insert(self.input_pos as usize, ch as u8);
                     self.input_pos += 1;
                 } else {
-                    // TODO: MAke it printable rather than alphanumeric
+                    // TODO: Make it printable rather than alphanumeric
                 }
             }
             BaseInputLineActions::DeleteWithMove => {
