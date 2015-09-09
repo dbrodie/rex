@@ -373,7 +373,7 @@ impl HexEdit {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
-                let orig_data = self.buffer.copy_out(offset as usize..buf.len());
+                let orig_data = self.buffer.copy_out(offset as usize..(offset as usize + buf.len()));
                 self.buffer.copy_in(offset as usize, &buf);
                 if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
             }
