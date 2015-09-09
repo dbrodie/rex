@@ -279,10 +279,25 @@ impl HexEdit {
             }
         }
 
-        let right_status = format!(
-            "overlay = {:?}, input = {:?} undo = {:?}, pos = {:?}, selection = {:?}, insert = {:?}",
-            self.overlay.is_none(), self.input_entry.is_none(), self.undo_stack.len(),
-            self.cursor_nibble_pos, self.selection_start, self.insert_mode);
+        let mode = if let Some(_) = self.selection_start {
+            "SEL"
+        } else if self.insert_mode {
+            "INS"
+        } else {
+            "OVR"
+        };
+
+        let right_status;
+        if let Some(selection_start) = self.selection_start {
+            let size = (self.cursor_nibble_pos/2 - selection_start).abs();
+            right_status = format!(
+                "Start: {} Size: {} Pos: {} {}",
+                selection_start, size, self.cursor_nibble_pos/2, mode);
+        } else {
+            right_status = format!(
+                "Pos: {} Undo: {} {}",
+                self.undo_stack.len(), self.cursor_nibble_pos/2, mode);
+        }
         rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
     }
 
