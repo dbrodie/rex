@@ -640,13 +640,11 @@ impl HexEdit {
             }
 
             HexEditActions::MovePageUp => {
-                // We want to move the cursor the amount of bytes on screen divided by two, we then
-                // multiply by two for it to be in nibbles
-                let t = -(self.get_bytes_per_screen() - self.get_line_width()) / 2 * 2;
+                let t = -(self.get_bytes_per_screen() * 2);
                 self.move_cursor(t)
             }
             HexEditActions::MovePageDown => {
-                let t = (self.get_bytes_per_screen() - self.get_line_width()) / 2 * 2;
+                let t = self.get_bytes_per_screen() * 2;
                 self.move_cursor(t)
             }
             HexEditActions::MoveToFirstColumn => {
