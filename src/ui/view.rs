@@ -291,14 +291,19 @@ impl HexEdit {
         if let Some(selection_start) = self.selection_start {
             let size = (self.cursor_nibble_pos/2 - selection_start).abs();
             right_status = format!(
-                "Start: {} Size: {} Pos: {} {}",
+                " Start: {} Size: {} Pos: {} {}",
                 selection_start, size, self.cursor_nibble_pos/2, mode);
         } else {
             right_status = format!(
-                "Pos: {} Undo: {} {}",
+                " Pos: {} Undo: {} {}",
                 self.undo_stack.len(), self.cursor_nibble_pos/2, mode);
-        }
-        rb.print_style(rb.width() - right_status.len(), rb.height() - 1, Style::StatusBar, &right_status);
+        };
+        let (x_pos, start_index) = if rb.width() >= right_status.len() {
+            (rb.width() - right_status.len(), 0)
+        } else {
+            (0, right_status.len() - rb.width())
+        };
+        rb.print_style(x_pos, rb.height() - 1, Style::StatusBar, &right_status[start_index..]);
     }
 
     pub fn draw(&mut self, rb: &RustBox) {
