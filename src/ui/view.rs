@@ -853,5 +853,6 @@ impl HexEdit {
     pub fn resize(&mut self, width: i32, height: i32) {
         self.rect.height = height as isize - 1;  // Substract 1 for the status line on the bottom
         self.rect.width = width as isize;
+        self.update_cursor();
     }
 }
