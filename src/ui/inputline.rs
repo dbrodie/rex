@@ -8,6 +8,7 @@ use rex_utils;
 use rex_utils::rect::Rect;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
+use super::widget::Widget;
 
 
 use super::common::Canceled;
@@ -20,11 +21,6 @@ pub enum BaseInputLineActions {
     DeleteWithMove,
     Ok,
     Cancel
-}
-
-pub trait InputLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool;
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool);
 }
 
 struct BaseInputLine {
@@ -43,7 +39,7 @@ impl BaseInputLine {
     }
 }
 
-impl InputLine for BaseInputLine {
+impl Widget for BaseInputLine {
     fn input(&mut self, input: &Input, key: Key) -> bool {
         let action = if let Some(action) = input.inputline_input(key) { action } else {
             return false;
@@ -149,7 +145,7 @@ impl GotoInputLine {
     }
 }
 
-impl InputLine for GotoInputLine {
+impl Widget for GotoInputLine {
     fn input(&mut self, input: &Input, key: Key) -> bool {
         if self.base.input(input, key) { return true }
 
@@ -246,7 +242,7 @@ impl FindInputLine {
     }
 }
 
-impl InputLine for FindInputLine {
+impl Widget for FindInputLine {
     fn input(&mut self, input: &Input, key: Key) -> bool {
         if self.base.input(input, key) { return true }
 
@@ -306,7 +302,7 @@ impl PathInputLine {
     }
 }
 
-impl InputLine for PathInputLine {
+impl Widget for PathInputLine {
     fn input(&mut self, input: &Input, key: Key) -> bool {
         if self.base.input(input, key) { return true }
 

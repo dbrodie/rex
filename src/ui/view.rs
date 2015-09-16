@@ -19,7 +19,8 @@ use super::super::config::Config;
 
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
-use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
+use super::widget::Widget;
+use super::inputline::{GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
 
 #[derive(Debug)]
@@ -80,7 +81,7 @@ pub struct HexEdit {
     insert_mode: bool,
     input: Input,
     undo_stack: Vec<UndoAction>,
-    input_entry: Option<Box<InputLine>>,
+    input_entry: Option<Box<Widget>>,
     overlay: Option<OverlayText>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
@@ -765,7 +766,7 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(gt) as Box<InputLine>)
+        self.input_entry = Some(Box::new(gt) as Box<Widget>)
     }
 
     fn start_find(&mut self) {
@@ -785,7 +786,7 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(find_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(find_line) as Box<Widget>)
     }
 
     fn start_save(&mut self) {
@@ -805,7 +806,7 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
     }
 
     fn start_open(&mut self) {
@@ -825,7 +826,7 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
     }
 
     fn process_msgs(&mut self) {
