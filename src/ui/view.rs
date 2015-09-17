@@ -82,7 +82,7 @@ pub struct HexEdit {
     input: Input,
     undo_stack: Vec<UndoAction>,
     input_entry: Option<Box<Widget>>,
-    overlay: Option<OverlayText>,
+    overlay: Option<Box<Widget>>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
@@ -726,7 +726,7 @@ impl HexEdit {
                 }
                 obj.overlay = None;
             }));
-            self.overlay = Some(ot);
+            self.overlay = Some(Box::new(ot));
         }
         {
             self.status("Press Esc to return");
@@ -745,7 +745,7 @@ impl HexEdit {
             }
             obj.overlay = None;
         }));
-        self.overlay = Some(ot);
+        self.overlay = Some(Box::new(ot));
     }
 
     fn start_goto(&mut self) {
