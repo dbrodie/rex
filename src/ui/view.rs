@@ -631,6 +631,9 @@ impl HexEdit {
             HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
             HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
             HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
+            HexEditActions::MoveLeft => panic!("Make the case handler happy!"),
+            HexEditActions::MoveRight => panic!("Make the case handler happy!"),
+
             HexEditActions::MoveUp => {
                 let t = -self.get_line_width() * 2;
                 self.move_cursor(t)
@@ -687,6 +690,8 @@ impl HexEdit {
                     // TODO: Show error?
                 }
             }
+
+            HexEditActions::Edit(ch) => panic!("Make the case handler happy!"),
 
             HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
