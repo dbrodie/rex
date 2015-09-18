@@ -23,6 +23,7 @@ impl Style {
 pub trait RustBoxEx {
     fn print_style(&self, x: usize, y: usize, style: Style, s: &str);
     fn print_char_style(&self, x: usize, y: usize, style: Style, c: char);
+    fn print_slice_style(&self, x: usize, y: usize, style: Style, chars: &[char]);
 }
 
 impl RustBoxEx for RustBox {
@@ -34,5 +35,12 @@ impl RustBoxEx for RustBox {
     fn print_char_style(&self, x: usize, y: usize, style: Style, c: char) {
         let (st, fg, bg) = style.to_triple();
         self.print_char(x, y, st, fg, bg, c);
+    }
+
+    fn print_slice_style(&self, x: usize, y: usize, style: Style, chars: &[char]) {
+        let (st, fg, bg) = style.to_triple();
+        for (i, c) in chars.iter().enumerate() {
+            self.print_char(x + i, y, st, fg, bg, *c);
+        }
     }
 }
