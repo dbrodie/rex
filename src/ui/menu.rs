@@ -9,6 +9,7 @@ use rex_utils::rect::Rect;
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
+use super::view::HexEditActions;
 use super::RustBoxEx::{RustBoxEx, Style};
 
 pub enum MenuActions {
@@ -24,14 +25,14 @@ pub enum MenuEntry<'a, T> where T: 'a {
 
 pub type MenuState<T> = &'static [MenuEntry<'static, T>];
 
-pub struct OverlayMenu<T> where T: 'static {
-    root_menu: MenuState<T>,
-    menu_stack: Vec<MenuState<T>>,
+pub struct OverlayMenu {
+    root_menu: MenuState<HexEditActions>,
+    menu_stack: Vec<MenuState<HexEditActions>>,
     pub on_cancel: Canceled,
 }
 
-impl<T> OverlayMenu<T> {
-    pub fn with_menu(root_menu: MenuState<T>) -> OverlayMenu<T> {
+impl OverlayMenu {
+    pub fn with_menu(root_menu: MenuState<HexEditActions>) -> OverlayMenu {
         OverlayMenu {
             root_menu: root_menu,
             menu_stack: vec![],
@@ -56,7 +57,7 @@ impl<T> OverlayMenu<T> {
         return false;
     }
 
-    fn current_menu(&self) -> MenuState<T> {
+    fn current_menu(&self) -> MenuState<HexEditActions> {
         self.menu_stack.last().unwrap_or(&self.root_menu)
     }
 
@@ -65,7 +66,7 @@ impl<T> OverlayMenu<T> {
     }
 }
 
-impl<T> Widget for OverlayMenu<T> {
+impl Widget for OverlayMenu {
     fn input(&mut self, input: &Input, key: Key) -> bool {
         let action = if let Some(action) = input.menu_input(key) { action } else {
             return false;
