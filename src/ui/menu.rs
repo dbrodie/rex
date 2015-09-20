@@ -15,6 +15,7 @@ pub enum MenuActions {
     Key(char),
     Back,
     Cancel,
+    ToggleHelp,
 }
 
 pub enum MenuEntry<'a, T> where T: 'a {
@@ -29,6 +30,7 @@ signal_decl!{MenuSelected(HexEditActions)}
 pub struct OverlayMenu {
     root_menu: MenuState<HexEditActions>,
     menu_stack: Vec<MenuState<HexEditActions>>,
+    show_help: bool,
     pub on_cancel: Canceled,
     pub on_selected: MenuSelected,
 }
@@ -38,6 +40,7 @@ impl OverlayMenu {
         OverlayMenu {
             root_menu: root_menu,
             menu_stack: vec![],
+            show_help: false,
             on_cancel: Default::default(),
             on_selected: Default::default(),
         }
@@ -79,11 +82,15 @@ impl Widget for OverlayMenu {
             MenuActions::Back => self.menu_back(),
             MenuActions::Key(c) => { return self.menu_act_key(c); }
             MenuActions::Cancel => self.on_cancel.signal(None),
+            MenuActions::ToggleHelp => self.show_help = !self.show_help,
         };
         return true;
     }
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+        if (!self.show_help) {
+            return;
+        }
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
         for i in 0..(area.height as usize) {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default, &clear_line);

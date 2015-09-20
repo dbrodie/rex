@@ -71,6 +71,7 @@ impl Input {
         match key {
             Key::Backspace => Some(MenuActions::Back),
             Key::Esc => Some(MenuActions::Cancel),
+            Key::Char('?') => Some(MenuActions::ToggleHelp),
             Key::Char(c) => Some(MenuActions::Key(c)),
             _ => None
         }
