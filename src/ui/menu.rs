@@ -25,10 +25,13 @@ pub enum MenuEntry<'a, T> where T: 'a {
 
 pub type MenuState<T> = &'static [MenuEntry<'static, T>];
 
+signal_decl!{MenuSelected(HexEditActions)}
+
 pub struct OverlayMenu {
     root_menu: MenuState<HexEditActions>,
     menu_stack: Vec<MenuState<HexEditActions>>,
     pub on_cancel: Canceled,
+    pub on_selected: MenuSelected,
 }
 
 impl OverlayMenu {
@@ -36,15 +39,16 @@ impl OverlayMenu {
         OverlayMenu {
             root_menu: root_menu,
             menu_stack: vec![],
-            on_cancel: Default::default()
+            on_cancel: Default::default(),
+            on_selected: Default::default(),
         }
     }
 
     fn menu_act_key(&mut self, c: char) -> bool {
         for entry in self.current_menu().iter() {
             match entry {
-                &MenuEntry::CommandEntry(key, _, _) if key == c => {
-                    println!("Found key = {}", key);
+                &MenuEntry::CommandEntry(key, _, command) if key == c => {
+                    self.on_selected.signal(command);
                     return true;
                 }
                 &MenuEntry::SubEntries(key, _, sub_menu) if key == c => {
