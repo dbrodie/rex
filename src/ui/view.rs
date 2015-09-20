@@ -645,6 +645,7 @@ impl HexEdit {
     }
 
     fn do_action(&mut self, action: HexEditActions) {
+        self.clear_status();
         match action {
             // Movement
             HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
