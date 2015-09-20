@@ -639,11 +639,13 @@ impl HexEdit {
     }
 
     fn view_input(&mut self, key: Key) {
-        let action = self.input.editor_input(key);
-        if action.is_none() {
-            return;
+        if let Some(action) = self.input.editor_input(key) {
+            self.do_action(action)
         }
-        match action.unwrap() {
+    }
+
+    fn do_action(&mut self, action: HexEditActions) {
+        match action {
             // Movement
             HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
             HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
