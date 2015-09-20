@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::default::Default;
 use rustbox::RustBox;
 use rustbox::keyboard::Key;
