@@ -25,7 +25,7 @@ use super::overlay::OverlayText;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
-enum UndoAction {
+enum EditOp {
     Delete(isize, isize),
     Insert(isize, Vec<u8>),
     Write(isize, Vec<u8>),
@@ -98,7 +98,7 @@ pub struct HexEdit {
     selection_start: Option<isize>,
     insert_mode: bool,
     input: Input,
-    undo_stack: Vec<UndoAction>,
+    undo_stack: Vec<EditOp>,
     input_entry: Option<Box<Widget>>,
     overlay: Option<Box<Widget>>,
     cur_path: Option<PathBuf>,
@@ -386,35 +386,35 @@ impl HexEdit {
         }
     }
 
-    fn do_action(&mut self, act: UndoAction, add_to_undo: bool) -> (isize, isize) {
+    fn edit_buffer(&mut self, act: EditOp, add_to_undo: bool) -> (isize, isize) {
         let stat = format!("doing = {:?}", act);
         let mut begin_region: isize;
         let mut end_region: isize;
 
         match act {
-            UndoAction::Insert(offset, buf) => {
+            EditOp::Insert(offset, buf) => {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
                 self.buffer.insert(offset as usize, &buf);
                 if add_to_undo {
-                    self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize))
+                    self.push_undo(EditOp::Delete(offset, offset + buf.len() as isize))
                 }
             }
-            UndoAction::Delete(offset, end) => {
+            EditOp::Delete(offset, end) => {
                 begin_region = offset;
                 end_region = end;
 
                 let res = self.buffer.move_out(offset as usize..end as usize);
-                if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
+                if add_to_undo { self.push_undo(EditOp::Insert(offset, res)) }
             }
-            UndoAction::Write(offset, buf) => {
+            EditOp::Write(offset, buf) => {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
                 let orig_data = self.buffer.copy_out(offset as usize..(offset as usize + buf.len()));
                 self.buffer.copy_in(offset as usize, &buf);
-                if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
+                if add_to_undo { self.push_undo(EditOp::Write(offset, orig_data)) }
             }
         }
 
@@ -422,13 +422,13 @@ impl HexEdit {
         (begin_region, end_region)
     }
 
-    fn push_undo(&mut self, act: UndoAction) {
+    fn push_undo(&mut self, act: EditOp) {
         self.undo_stack.push(act);
     }
 
     fn undo(&mut self) {
         if let Some(act) = self.undo_stack.pop() {
-            let (begin, _) = self.do_action(act, false);
+            let (begin, _) = self.edit_buffer(act, false);
             self.set_cursor(begin * 2);
         }
     }
@@ -469,7 +469,7 @@ impl HexEdit {
         }
 
         self.selection_start = None;
-        self.do_action(UndoAction::Delete(del_start, del_stop), true);
+        self.edit_buffer(EditOp::Delete(del_start, del_stop), true);
         self.set_cursor(del_start * 2);
     }
 
@@ -496,7 +496,7 @@ impl HexEdit {
         };
 
         let byte_offset = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Write(byte_offset, vec![byte]), true);
+        self.edit_buffer(EditOp::Write(byte_offset, vec![byte]), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
@@ -507,7 +507,7 @@ impl HexEdit {
         }
 
         let pos_div2 = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(pos_div2, vec![c * 16]), true);
+        self.edit_buffer(EditOp::Insert(pos_div2, vec![c * 16]), true);
     }
 
     fn toggle_insert_mode(&mut self) {
@@ -523,9 +523,9 @@ impl HexEdit {
 
         let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
-            self.do_action(UndoAction::Insert(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOp::Insert(byte_offset, vec![c]), true);
         } else {
-            self.do_action(UndoAction::Write(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOp::Write(byte_offset, vec![c]), true);
         }
     }
 
@@ -634,7 +634,7 @@ impl HexEdit {
         let data_len = data.len() as isize;
         // This is needed to satisfy the borrow checker
         let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(cur_pos_in_bytes, data), true);
+        self.edit_buffer(EditOp::Insert(cur_pos_in_bytes, data), true);
         self.move_cursor(data_len + 1);
     }
 
@@ -679,7 +679,6 @@ impl HexEdit {
                 self.move_cursor(i);
             }
 
-            // UndoAction::Delete
             HexEditActions::Delete => self.delete_at_cursor(false),
             HexEditActions::DeleteWithMove => self.delete_at_cursor(true),
 
