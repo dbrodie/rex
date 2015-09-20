@@ -76,13 +76,11 @@ impl Widget for OverlayMenu {
         };
 
         match action {
-            MenuActions::Back => { self.menu_back(); true}
-            MenuActions::Key(c) => self.menu_act_key(c),
-            MenuActions::Cancel => {
-                self.on_cancel.signal(None);
-                true
-            }
-        }
+            MenuActions::Back => self.menu_back(),
+            MenuActions::Key(c) => { return self.menu_act_key(c); }
+            MenuActions::Cancel => self.on_cancel.signal(None),
+        };
+        return true;
     }
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
