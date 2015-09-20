@@ -3,6 +3,7 @@ use rustbox::keyboard::Key;
 use super::view::HexEditActions;
 use super::inputline::BaseInputLineActions;
 use super::overlay::OverlayActions;
+use super::menu::MenuActions;
 
 pub struct Input;
 
@@ -12,7 +13,6 @@ impl Input {
     }
     pub fn editor_input(&self, key: Key) -> Option<HexEditActions> {
         match key {
-            Key::Char(c) => Some(HexEditActions::Edit(c)),
             Key::Left => Some(HexEditActions::MoveLeft),
             Key::Right => Some(HexEditActions::MoveRight),
             Key::Up => Some(HexEditActions::MoveUp),
@@ -24,6 +24,7 @@ impl Input {
             Key::Backspace => Some(HexEditActions::DeleteWithMove),
             Key::Delete => Some(HexEditActions::Delete),
             Key::Tab => Some(HexEditActions::SwitchView),
+            Key::Char('\u{0}') => Some(HexEditActions::StartMenu),
             Key::Ctrl('x') => Some(HexEditActions::CutSelection),
             Key::Ctrl('c') => Some(HexEditActions::CopySelection),
             Key::Ctrl('v') => Some(HexEditActions::PasteSelection),
@@ -36,8 +37,9 @@ impl Input {
             Key::Ctrl('f') => Some(HexEditActions::AskFind),
             Key::Ctrl('e') => Some(HexEditActions::AskOpen),
             Key::Ctrl('w') => Some(HexEditActions::AskSave),
+            Key::Char(c) => Some(HexEditActions::Edit(c)),
 
-            k @ _=> {
+            k @ _ => {
                 println!("Unknown key {:?}", k);
                 None
             }
@@ -61,6 +63,15 @@ impl Input {
     pub fn overlay_input(&self, key: Key) -> Option<OverlayActions> {
         match key {
             Key::Esc => Some(OverlayActions::Cancel),
+            _ => None
+        }
+    }
+
+    pub fn menu_input(&self, key: Key) -> Option<MenuActions> {
+        match key {
+            Key::Backspace => Some(MenuActions::Back),
+            Key::Esc => Some(MenuActions::Cancel),
+            Key::Char(c) => Some(MenuActions::Key(c)),
             _ => None
         }
     }

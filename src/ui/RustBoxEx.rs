@@ -7,6 +7,9 @@ pub enum Style {
     Selection,
     StatusBar,
     InputLine,
+    MenuShortcut,
+    MenuEntry,
+    MenuTitle
 }
 
 impl Style {
@@ -16,6 +19,9 @@ impl Style {
             Style::Selection => (RB_NORMAL, Color::Black, Color::White),
             Style::StatusBar => (RB_NORMAL, Color::Black, Color::White),
             Style::InputLine => (RB_BOLD, Color::White, Color::Blue),
+            Style::MenuShortcut => (RB_BOLD, Color::Default, Color::Default),
+            Style::MenuEntry => (RB_NORMAL, Color::Default, Color::Default),
+            Style::MenuTitle => (RB_NORMAL, Color::Default, Color::Default),
         }
     }
 }

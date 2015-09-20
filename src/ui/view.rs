@@ -22,6 +22,7 @@ use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
+use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
 enum UndoAction {
@@ -62,8 +63,25 @@ pub enum HexEditActions {
     AskGoto,
     AskFind,
     AskOpen,
-    AskSave
+    AskSave,
+    AskConfig,
+    AskFill,
+    AskMarkAdd,
+    AskMarkGoto,
+    CheckMagic,
+    StartMenu,
 }
+
+static ROOT_ENTRIES: MenuState<HexEditActions> = &[
+    MenuEntry::CommandEntry('c', "Config", HexEditActions::AskConfig),
+    MenuEntry::SubEntries('m', "Mark", &[
+        MenuEntry::CommandEntry('a', "Add", HexEditActions::AskMarkAdd),
+        MenuEntry::CommandEntry('g', "Goto", HexEditActions::AskMarkGoto),
+    ]),
+    MenuEntry::SubEntries('t', "Tools", &[
+        MenuEntry::CommandEntry('m', "Magic", HexEditActions::CheckMagic),
+    ]),
+];
 
 signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
@@ -713,8 +731,24 @@ impl HexEdit {
             HexEditActions::AskOpen => self.start_open(),
             HexEditActions::AskSave => self.start_save(),
 
-            _  => self.status(format!("key = {:?}", key)),
+            HexEditActions::StartMenu => self.start_menu(),
+
+            _ => ()
         }
+    }
+
+    fn start_menu(&mut self) {
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let mut menu = OverlayMenu::with_menu(ROOT_ENTRIES);
+        menu.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            } else {
+                obj.clear_status();
+            }
+            obj.overlay = None;
+        }));
+        self.overlay = Some(Box::new(menu));
     }
 
     fn start_help(&mut self) {
