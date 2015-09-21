@@ -29,7 +29,7 @@ signal_decl!{MenuSelected(HexEditActions)}
 
 pub struct OverlayMenu {
     root_menu: MenuState<HexEditActions>,
-    menu_stack: Vec<MenuState<HexEditActions>>,
+    menu_stack: Vec<&'static MenuEntry<'static, HexEditActions>>,
     show_help: bool,
     pub on_cancel: Canceled,
     pub on_selected: MenuSelected,
@@ -54,7 +54,7 @@ impl OverlayMenu {
                     return true;
                 }
                 &MenuEntry::SubEntries(key, _, sub_menu) if key == c => {
-                    self.menu_stack.push(sub_menu);
+                    self.menu_stack.push(&entry);
                     return true;
                 }
                 _ => ()
@@ -64,11 +64,32 @@ impl OverlayMenu {
     }
 
     fn current_menu(&self) -> MenuState<HexEditActions> {
-        self.menu_stack.last().unwrap_or(&self.root_menu)
+        match self.menu_stack.last() {
+            Some(&&MenuEntry::SubEntries(_, _, entries)) => entries,
+            Some(&&MenuEntry::CommandEntry(_, _, _)) => panic!("Got a non menu entry in my menu stack!"),
+            None => &self.root_menu,
+        }
     }
 
     fn menu_back(&mut self) {
         self.menu_stack.pop();
+    }
+
+    fn draw_menu_location(&mut self, rb: &RustBox, x: isize, y: isize) {
+        let mut x_pos = 0;
+        rb.print_style((x + x_pos) as usize, y as usize, Style::MenuTitle, " > ");
+        x_pos += 3;
+        for location_entry in self.menu_stack.iter() {
+            let name = match **location_entry {
+                MenuEntry::SubEntries(_, name, _) => name,
+                _ => panic!("Got a non menu entry in my menu stack!")
+            };
+            rb.print_style((x + x_pos) as usize, y as usize, Style::MenuTitle, name);
+            x_pos += name.len() as isize;
+            rb.print_style((x + x_pos) as usize, y as usize, Style::MenuTitle, " > ");
+            x_pos += 3;
+
+        }
     }
 }
 
@@ -88,23 +109,29 @@ impl Widget for OverlayMenu {
     }
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+        let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
+
         if (!self.show_help) {
+            rb.print_style(area.left as usize, (area.bottom() - 1) as usize, Style::Default, &clear_line);
+            self.draw_menu_location(rb, area.left, area.bottom() - 1);
             return;
         }
-        let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
+
         for i in 0..(area.height as usize) {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default, &clear_line);
         }
+
+        self.draw_menu_location(rb, area.left, area.top);
 
         for (i, entry) in self.current_menu().iter().enumerate() {
             let (key, name, is_title, style) = match entry {
                 &MenuEntry::CommandEntry(key, name, _) => (key, name, false, Style::MenuEntry),
                 &MenuEntry::SubEntries(key, name, _) => (key, name, true, Style::MenuTitle),
             };
-            rb.print_slice_style(10 + area.left as usize, area.top as usize + i, Style::MenuShortcut, &[key, ' ']);
-            rb.print_style(10 + area.left as usize + 2, area.top as usize + i, style, name);
+            rb.print_slice_style(10 + area.left as usize, area.top as usize + i + 1, Style::MenuShortcut, &[key, ' ']);
+            rb.print_style(10 + area.left as usize + 2, area.top as usize + i + 1, style, name);
             if is_title {
-                rb.print_style(10 + area.left as usize + 2 + name.len() + 1, area.top as usize + i, style, "->");
+                rb.print_style(10 + area.left as usize + 2 + name.len() + 1, area.top as usize + i + 1, style, "->");
             }
         }
 

@@ -79,7 +79,9 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
         MenuEntry::CommandEntry('g', "Goto", HexEditActions::AskMarkGoto),
     ]),
     MenuEntry::SubEntries('t', "Tools", &[
-        MenuEntry::CommandEntry('m', "Magic", HexEditActions::CheckMagic),
+        MenuEntry::SubEntries('m', "More", &[
+            MenuEntry::CommandEntry('m', "Magic", HexEditActions::CheckMagic),
+        ]),
     ]),
 ];
 
