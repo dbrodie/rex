@@ -112,7 +112,11 @@ impl Widget for OverlayMenu {
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 
         if (!self.show_help) {
+            let hint_msg = "Use ? to show/hide the menu help";
+
             rb.print_style(area.left as usize, (area.bottom() - 1) as usize, Style::Default, &clear_line);
+            rb.print_style(area.right() as usize - hint_msg.len(), (area.bottom() - 1) as usize,
+                Style::Hint, hint_msg);
             self.draw_menu_location(rb, area.left, area.bottom() - 1);
             return;
         }

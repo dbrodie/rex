@@ -1,10 +1,11 @@
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE};
 use rustbox::Style as RB_Style;
 
 #[derive(Copy, Clone)]
 pub enum Style {
     Default,
     Selection,
+    Hint,
     StatusBar,
     InputLine,
     MenuShortcut,
@@ -17,6 +18,7 @@ impl Style {
         match self {
             Style::Default => (RB_NORMAL, Color::Default, Color::Default),
             Style::Selection => (RB_NORMAL, Color::Black, Color::White),
+            Style::Hint => (RB_UNDERLINE, Color::Default, Color::Default),
             Style::StatusBar => (RB_NORMAL, Color::Black, Color::White),
             Style::InputLine => (RB_BOLD, Color::White, Color::Blue),
             Style::MenuShortcut => (RB_BOLD, Color::Default, Color::Default),
