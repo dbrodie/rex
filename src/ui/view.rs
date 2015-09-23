@@ -9,6 +9,7 @@ use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
 use std::borrow::Cow;
+use std::rc::Rc;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -89,7 +90,7 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: SplitVec,
-    config: Config,
+    config: Rc<Config>,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
@@ -113,7 +114,7 @@ impl HexEdit {
     pub fn new(config: Config) -> HexEdit {
         HexEdit {
             buffer: SplitVec::new(),
-            config: config,
+            config: Rc::new(config),
             rect: Default::default(),
             cursor_nibble_pos: 0,
             data_offset: 0,
