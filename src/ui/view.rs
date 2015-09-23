@@ -23,6 +23,7 @@ use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
+use super::config::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
@@ -758,6 +759,20 @@ impl HexEdit {
             obj.overlay = None;
         }));
         self.overlay = Some(Box::new(menu));
+    }
+
+    fn start_config(&mut self) {
+        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let mut config_screen = ConfigScreen::with_config(self.config.clone());
+        config_screen.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            } else {
+                obj.clear_status();
+            }
+            obj.overlay = None;
+        }));
+        self.overlay = Some(Box::new(config_screen));
     }
 
     fn start_help(&mut self) {

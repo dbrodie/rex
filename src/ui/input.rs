@@ -4,6 +4,7 @@ use super::view::HexEditActions;
 use super::inputline::BaseInputLineActions;
 use super::overlay::OverlayActions;
 use super::menu::MenuActions;
+use super::config::ConfigScreenActions;
 
 pub struct Input;
 
@@ -63,6 +64,16 @@ impl Input {
     pub fn overlay_input(&self, key: Key) -> Option<OverlayActions> {
         match key {
             Key::Esc => Some(OverlayActions::Cancel),
+            _ => None
+        }
+    }
+
+    pub fn config_input(&self, key: Key) -> Option<ConfigScreenActions> {
+        match key {
+            Key::Down => Some(ConfigScreenActions::Down),
+            Key::Up => Some(ConfigScreenActions::Up),
+            Key::Enter => Some(ConfigScreenActions::Select),
+            Key::Esc => Some(ConfigScreenActions::Cancel),
             _ => None
         }
     }

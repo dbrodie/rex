@@ -5,4 +5,5 @@ mod RustBoxEx;
 mod overlay;
 mod inputline;
 mod menu;
+mod config;
 pub mod view;
