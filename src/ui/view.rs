@@ -134,7 +134,7 @@ impl HexEdit {
 
     fn get_linenumber_width(&self) -> isize {
         match self.get_linenumber_mode() {
-            LineNumberMode::None => 0,
+            LineNumberMode::None => 1,
             LineNumberMode::Short => 4 + 1, // 4 for the XXXX + 1 for whitespace
             LineNumberMode::Long => 9 + 1, // 7 for XXXX:XXXX + 1 for whitespace
         }
@@ -176,9 +176,11 @@ impl HexEdit {
 
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
+        let mut at_current_row = false;
 
         for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate().take(self.get_bytes_per_row() as usize) {
             let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
+            at_current_row = at_current_row || at_current_byte;
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
                 rex_utils::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
@@ -247,8 +249,15 @@ impl HexEdit {
             }
         }
 
-        // We just need to consume the iterator
-        iter.count();
+        // We just need to consume the iterator and see if there were any remaining bytes
+        let bytes_remaining = iter.count();
+
+        if at_current_row && self.row_offset != 0 {
+            rb.print_char_style(nibble_view_start - 1, row, Style::Default, '<');
+        }
+        if at_current_row && bytes_remaining != 0 {
+            rb.print_char_style(byte_view_start - 1, row, Style::Default, '>');
+        }
     }
 
     pub fn draw_view(&self, rb: &RustBox) {
