@@ -736,6 +736,7 @@ impl HexEdit {
             HexEditActions::AskFind => self.start_find(),
             HexEditActions::AskOpen => self.start_open(),
             HexEditActions::AskSave => self.start_save(),
+            HexEditActions::AskConfig => self.start_config(),
 
             HexEditActions::StartMenu => self.start_menu(),
 
