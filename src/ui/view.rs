@@ -747,8 +747,8 @@ impl HexEdit {
         let sr = &self.signal_receiver;
         let mut menu = OverlayMenu::with_menu(ROOT_ENTRIES);
         menu.on_selected.connect(signal!(sr with |obj, action| {
-            obj.do_action(action);
             obj.overlay = None;
+            obj.do_action(action);
         }));
         menu.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
