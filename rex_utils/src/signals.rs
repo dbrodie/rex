@@ -55,7 +55,7 @@
 //!
 //! A signal receiver is declared with the ```signalreceiver_decl!``` macro, that accepts the type
 //! of the object that the signal will be "posted" to. The created type has two methods. The first,
-//! ```run(& mut self, &mut ObjType)``` to dispatch any incoming signals. Additionally a
+//! ```run(&self, &mut ObjType)``` to dispatch any incoming signals. Additionally a
 //! ```new()``` method to create a type (though the Default trait can also be used).
 //! For example, here is how we would create a signal receiver for our App struct:
 //!
@@ -238,7 +238,7 @@ macro_rules! signalreceiver_decl {
                 }
             }
 
-            fn run(&mut self, ss: &mut $t) {
+            fn run(&self, ss: &mut $t) {
                 loop {
                     match self.receiver.try_recv() {
                         Ok(mut handler) => handler(ss),
