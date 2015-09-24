@@ -4,7 +4,7 @@ use std::default::Default;
 use std::ops::Add;
 
 /// A simple rect struct.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rect<T> {
     pub top: T,
     pub left: T,
