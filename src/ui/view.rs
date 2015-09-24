@@ -108,7 +108,7 @@ pub struct HexEdit {
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
-    signal_receiver: Option<HexEditSignalReceiver>,
+    signal_receiver: Rc<HexEditSignalReceiver>,
 }
 
 impl HexEdit {
@@ -131,7 +131,7 @@ impl HexEdit {
             cur_path: None,
             clipboard: None,
             input: Input::new(),
-            signal_receiver: Some(HexEditSignalReceiver::new()),
+            signal_receiver: Rc::new(HexEditSignalReceiver::new()),
         }
     }
 
@@ -744,7 +744,7 @@ impl HexEdit {
     }
 
     fn start_menu(&mut self) {
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         let mut menu = OverlayMenu::with_menu(ROOT_ENTRIES);
         menu.on_selected.connect(signal!(sr with |obj, action| {
             obj.do_action(action);
@@ -762,7 +762,7 @@ impl HexEdit {
     }
 
     fn start_config(&mut self) {
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         let mut config_screen = ConfigScreen::with_config(self.config.clone());
         config_screen.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
@@ -779,7 +779,7 @@ impl HexEdit {
         let help_text = include_str!("Help.txt");
         // YAY Lifetimes! (This will hopfully be fixed once rust gains MIR/HIR)
         {
-            let ref sr = self.signal_receiver.as_mut().unwrap();
+            let sr = &self.signal_receiver;
             let mut ot = OverlayText::with_text(help_text.to_string(), false);
             ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
                 if let Some(ref msg) = opt_msg {
@@ -798,7 +798,7 @@ impl HexEdit {
 
     fn start_logview(&mut self) {
         let logs = self.status_log.clone();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         let mut ot = OverlayText::with_logs(logs, true);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
@@ -814,7 +814,7 @@ impl HexEdit {
     fn start_goto(&mut self) {
         let mut gt = GotoInputLine::new();
         // let mut sender_clone0 = self.sender.clone();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.goto(pos*2);
             obj.input_entry = None;
@@ -834,7 +834,7 @@ impl HexEdit {
 
     fn start_find(&mut self) {
         let mut find_line = FindInputLine::new();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         find_line.on_find.connect(signal!(sr with |obj, needle| {
             obj.find_buf(&needle);
             obj.input_entry = None;
@@ -854,7 +854,7 @@ impl HexEdit {
 
     fn start_save(&mut self) {
         let mut path_line = PathInputLine::new("Save: ".into());
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.save(&path);
             obj.input_entry = None;
@@ -874,7 +874,7 @@ impl HexEdit {
 
     fn start_open(&mut self) {
         let mut path_line = PathInputLine::new("Open: ".into());
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.open(&path);
             obj.input_entry = None;
@@ -893,9 +893,8 @@ impl HexEdit {
     }
 
     fn process_msgs(&mut self) {
-        let mut sr = self.signal_receiver.take().unwrap();
+        let mut sr = self.signal_receiver.clone();
         sr.run(self);
-        self.signal_receiver = Some(sr);
     }
 
     pub fn input(&mut self, key: Key) {
