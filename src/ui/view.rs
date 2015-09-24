@@ -1,4 +1,6 @@
 use std::cmp;
+use std::ops::Add;
+use std::ops::Sub;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -39,6 +41,71 @@ enum LineNumberMode {
     Short,
     Long
 }
+
+#[derive(Debug, Copy, Clone)]
+enum LayoutPos<T> {
+    FromStart(T),
+    FromEnd(T),
+}
+
+#[derive(Debug, Copy, Clone)]
+enum LayoutSize<T> {
+    Absolute(T),
+    Relative(T),
+}
+
+#[derive(Debug, Copy, Clone)]
+struct WidgetLayout<T> {
+    top: LayoutPos<T>,
+    left: LayoutPos<T>,
+    width: LayoutSize<T>,
+    height: LayoutSize<T>,
+}
+
+impl<T: Copy + Add<T, Output=T> + Sub<T, Output=T>> LayoutPos<T> {
+    fn relative_to(&self, start: T, end: T) -> T {
+        match *self {
+            LayoutPos::FromStart(n) => start + n,
+            LayoutPos::FromEnd(n) => end - n
+        }
+    }
+}
+
+impl<T: Copy + Add<T, Output=T> + Sub<T, Output=T>> LayoutSize<T> {
+    fn relative_to(&self, size: T) -> T {
+        match *self {
+            LayoutSize::Absolute(n) => n,
+            LayoutSize::Relative(n) => size - n
+        }
+    }
+}
+
+impl<T> WidgetLayout<T>
+        where T: Copy + Add<T, Output=T> + Sub<T, Output=T>
+{
+    fn get_absolute_to(&self, relative_to: Rect<T>) -> Rect<T> {
+        Rect {
+            top: self.top.relative_to(relative_to.top, relative_to.bottom()),
+            left: self.left.relative_to(relative_to.left, relative_to.right()),
+            width: self.width.relative_to(relative_to.width),
+            height: self.height.relative_to(relative_to.height)
+        }
+    }
+}
+
+static OVERLAY_LAYOUT : WidgetLayout<isize> = WidgetLayout {
+    top: LayoutPos::FromStart(0),
+    left: LayoutPos::FromStart(0),
+    width: LayoutSize::Relative(0),
+    height: LayoutSize::Relative(0),
+};
+
+static INPUTLINE_LAYOUT : WidgetLayout<isize> = WidgetLayout {
+    top: LayoutPos::FromEnd(1),
+    left: LayoutPos::FromStart(0),
+    width: LayoutSize::Relative(0),
+    height: LayoutSize::Absolute(1),
+};
 
 #[derive(Copy,Clone,Debug)]
 pub enum HexEditActions {
@@ -98,8 +165,7 @@ pub struct HexEdit {
     insert_mode: bool,
     input: Input,
     undo_stack: Vec<EditOp>,
-    input_entry: Option<Box<Widget>>,
-    overlay: Option<Box<Widget>>,
+    sub_widget: Option<(Box<Widget>, WidgetLayout<isize>)>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
@@ -120,9 +186,8 @@ impl HexEdit {
             nibble_active: true,
             selection_start: None,
             insert_mode: false,
-            input_entry: None,
+            sub_widget: None,
             undo_stack: Vec::new(),
-            overlay: None,
             cur_path: None,
             clipboard: None,
             input: Input::new(),
@@ -136,7 +201,7 @@ impl HexEdit {
         self.nibble_active = true;
         self.selection_start = None;
         self.insert_mode = false;
-        self.input_entry = None;
+        self.sub_widget = None;
         self.undo_stack = Vec::new();
     }
 
@@ -229,7 +294,7 @@ impl HexEdit {
                     ' ');
 
             }
-            if self.nibble_active && self.input_entry.is_none() && at_current_byte {
+            if self.nibble_active && self.sub_widget.is_none() && at_current_byte {
                 rb.set_cursor(nibble_view_column as isize + (self.cursor_nibble_pos & 1),
                               row as isize);
             };
@@ -257,7 +322,7 @@ impl HexEdit {
 
                 rb.print_char_style(byte_view_start + row_offset, row, byte_style,
                     byte_char);
-                if !self.nibble_active && self.input_entry.is_none() && at_current_byte {
+                if !self.nibble_active && self.sub_widget.is_none() && at_current_byte {
                     rb.set_cursor((byte_view_start + row_offset) as isize, row as isize);
                 }
 
@@ -336,22 +401,9 @@ impl HexEdit {
     pub fn draw(&mut self, rb: &RustBox) {
         self.draw_view(rb);
 
-        if let Some(entry) = self.input_entry.as_mut() {
-            entry.draw(rb, Rect {
-                top: (rb.height() - 2) as isize,
-                left: 0,
-                height: 1,
-                width: rb.width() as isize
-            }, true);
-        }
-
-        if let Some(overlay) = self.overlay.as_mut() {
-            overlay.draw(rb, Rect {
-                top: 0,
-                left: 0,
-                height: self.rect.height,
-                width: self.rect.width,
-            }, true);
+        if let Some(&mut (ref mut sub_widget, ref layout)) = self.sub_widget.as_mut() {
+            let sub_widget_rect = layout.get_absolute_to(self.rect);
+            sub_widget.draw(rb, sub_widget_rect, true);
         }
 
         self.draw_statusbar(rb);
@@ -748,32 +800,32 @@ impl HexEdit {
         let sr = &self.signal_receiver;
         let mut menu = OverlayMenu::with_menu(ROOT_ENTRIES);
         menu.on_selected.connect(signal!(sr with |obj, action| {
-            obj.overlay = None;
+            obj.sub_widget = None;
             obj.do_action(action);
         }));
         menu.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.overlay = None;
         }));
-        self.overlay = Some(Box::new(menu));
+        self.sub_widget = Some((Box::new(menu), OVERLAY_LAYOUT));
     }
 
     fn start_config(&mut self) {
         let sr = &self.signal_receiver;
         let mut config_screen = ConfigScreen::with_config(self.config.clone());
         config_screen.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.overlay = None;
         }));
-        self.overlay = Some(Box::new(config_screen));
+        self.sub_widget = Some((Box::new(config_screen), OVERLAY_LAYOUT));
     }
 
     fn start_help(&mut self) {
@@ -783,14 +835,14 @@ impl HexEdit {
             let sr = &self.signal_receiver;
             let mut ot = OverlayText::with_text(help_text.to_string(), false);
             ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+                obj.sub_widget = None;
                 if let Some(ref msg) = opt_msg {
                     obj.status(msg.clone());
                 } else {
                     obj.clear_status();
                 }
-                obj.overlay = None;
             }));
-            self.overlay = Some(Box::new(ot));
+            self.sub_widget = Some((Box::new(ot), OVERLAY_LAYOUT));
         }
         {
             self.status("Press Esc to return");
@@ -802,14 +854,14 @@ impl HexEdit {
         let sr = &self.signal_receiver;
         let mut ot = OverlayText::with_logs(logs, true);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.overlay = None;
         }));
-        self.overlay = Some(Box::new(ot));
+        self.sub_widget = Some((Box::new(ot), OVERLAY_LAYOUT));
     }
 
     fn start_goto(&mut self) {
@@ -817,80 +869,80 @@ impl HexEdit {
         // let mut sender_clone0 = self.sender.clone();
         let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
+            obj.sub_widget = None;
             obj.goto(pos*2);
-            obj.input_entry = None;
         }));
 
         gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(gt) as Box<Widget>)
+        self.sub_widget = Some((Box::new(gt) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_find(&mut self) {
         let mut find_line = FindInputLine::new();
         let sr = &self.signal_receiver;
         find_line.on_find.connect(signal!(sr with |obj, needle| {
+            obj.sub_widget = None;
             obj.find_buf(&needle);
-            obj.input_entry = None;
         }));
 
         find_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(find_line) as Box<Widget>)
+        self.sub_widget = Some((Box::new(find_line) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_save(&mut self) {
         let mut path_line = PathInputLine::new("Save: ".into());
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.sub_widget = None;
             obj.save(&path);
-            obj.input_entry = None;
         }));
 
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
+        self.sub_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_open(&mut self) {
         let mut path_line = PathInputLine::new("Open: ".into());
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
+            obj.sub_widget = None;
             obj.open(&path);
-            obj.input_entry = None;
         }));
 
         path_line.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.sub_widget = None;
             if let Some(ref msg) = opt_msg {
                 obj.status(msg.clone());
             } else {
                 obj.clear_status();
             }
-            obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
+        self.sub_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn process_msgs(&mut self) {
@@ -901,10 +953,8 @@ impl HexEdit {
     pub fn input(&mut self, key: Key) {
         self.process_msgs();
 
-        if let Some(ref mut overlay) = self.overlay {
-            overlay.input(&self.input, key);
-        } else if let Some(ref mut input_entry) = self.input_entry {
-            input_entry.input(&self.input, key);
+        if let Some((ref mut sub_widget, _)) = self.sub_widget {
+            sub_widget.input(&self.input, key);
         } else {
             self.view_input(key);
         }
