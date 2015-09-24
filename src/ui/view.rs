@@ -9,6 +9,7 @@ use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
 use std::borrow::Cow;
+use std::rc::Rc;
 use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
@@ -19,11 +20,14 @@ use super::super::config::Config;
 
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
-use super::inputline::{InputLine, GotoInputLine, FindInputLine, PathInputLine};
+use super::widget::Widget;
+use super::inputline::{GotoInputLine, FindInputLine, PathInputLine};
 use super::overlay::OverlayText;
+use super::config::ConfigScreen;
+use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
-enum UndoAction {
+enum EditOp {
     Delete(isize, isize),
     Insert(isize, Vec<u8>),
     Write(isize, Vec<u8>),
@@ -61,14 +65,28 @@ pub enum HexEditActions {
     AskGoto,
     AskFind,
     AskOpen,
-    AskSave
+    AskSave,
+    AskConfig,
+    AskFill,
+    AskMarkAdd,
+    AskMarkGoto,
+    CheckMagic,
+    StartMenu,
 }
+
+static ROOT_ENTRIES: MenuState<HexEditActions> = &[
+    MenuEntry::CommandEntry('c', "Config", HexEditActions::AskConfig),
+    MenuEntry::SubEntries('m', "Mark", &[
+        MenuEntry::CommandEntry('a', "Add", HexEditActions::AskMarkAdd),
+        MenuEntry::CommandEntry('g', "Goto", HexEditActions::AskMarkGoto),
+    ]),
+];
 
 signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: SplitVec,
-    config: Config,
+    config: Rc<Config>,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
@@ -79,20 +97,20 @@ pub struct HexEdit {
     selection_start: Option<isize>,
     insert_mode: bool,
     input: Input,
-    undo_stack: Vec<UndoAction>,
-    input_entry: Option<Box<InputLine>>,
-    overlay: Option<OverlayText>,
+    undo_stack: Vec<EditOp>,
+    input_entry: Option<Box<Widget>>,
+    overlay: Option<Box<Widget>>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
-    signal_receiver: Option<HexEditSignalReceiver>,
+    signal_receiver: Rc<HexEditSignalReceiver>,
 }
 
 impl HexEdit {
     pub fn new(config: Config) -> HexEdit {
         HexEdit {
             buffer: SplitVec::new(),
-            config: config,
+            config: Rc::new(config),
             rect: Default::default(),
             cursor_nibble_pos: 0,
             data_offset: 0,
@@ -108,7 +126,7 @@ impl HexEdit {
             cur_path: None,
             clipboard: None,
             input: Input::new(),
-            signal_receiver: Some(HexEditSignalReceiver::new()),
+            signal_receiver: Rc::new(HexEditSignalReceiver::new()),
         }
     }
 
@@ -376,35 +394,35 @@ impl HexEdit {
         }
     }
 
-    fn do_action(&mut self, act: UndoAction, add_to_undo: bool) -> (isize, isize) {
+    fn edit_buffer(&mut self, act: EditOp, add_to_undo: bool) -> (isize, isize) {
         let stat = format!("doing = {:?}", act);
         let mut begin_region: isize;
         let mut end_region: isize;
 
         match act {
-            UndoAction::Insert(offset, buf) => {
+            EditOp::Insert(offset, buf) => {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
                 self.buffer.insert(offset as usize, &buf);
                 if add_to_undo {
-                    self.push_undo(UndoAction::Delete(offset, offset + buf.len() as isize))
+                    self.push_undo(EditOp::Delete(offset, offset + buf.len() as isize))
                 }
             }
-            UndoAction::Delete(offset, end) => {
+            EditOp::Delete(offset, end) => {
                 begin_region = offset;
                 end_region = end;
 
                 let res = self.buffer.move_out(offset as usize..end as usize);
-                if add_to_undo { self.push_undo(UndoAction::Insert(offset, res)) }
+                if add_to_undo { self.push_undo(EditOp::Insert(offset, res)) }
             }
-            UndoAction::Write(offset, buf) => {
+            EditOp::Write(offset, buf) => {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
                 let orig_data = self.buffer.copy_out(offset as usize..(offset as usize + buf.len()));
                 self.buffer.copy_in(offset as usize, &buf);
-                if add_to_undo { self.push_undo(UndoAction::Write(offset, orig_data)) }
+                if add_to_undo { self.push_undo(EditOp::Write(offset, orig_data)) }
             }
         }
 
@@ -412,13 +430,13 @@ impl HexEdit {
         (begin_region, end_region)
     }
 
-    fn push_undo(&mut self, act: UndoAction) {
+    fn push_undo(&mut self, act: EditOp) {
         self.undo_stack.push(act);
     }
 
     fn undo(&mut self) {
         if let Some(act) = self.undo_stack.pop() {
-            let (begin, _) = self.do_action(act, false);
+            let (begin, _) = self.edit_buffer(act, false);
             self.set_cursor(begin * 2);
         }
     }
@@ -459,7 +477,7 @@ impl HexEdit {
         }
 
         self.selection_start = None;
-        self.do_action(UndoAction::Delete(del_start, del_stop), true);
+        self.edit_buffer(EditOp::Delete(del_start, del_stop), true);
         self.set_cursor(del_start * 2);
     }
 
@@ -486,7 +504,7 @@ impl HexEdit {
         };
 
         let byte_offset = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Write(byte_offset, vec![byte]), true);
+        self.edit_buffer(EditOp::Write(byte_offset, vec![byte]), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
@@ -497,7 +515,7 @@ impl HexEdit {
         }
 
         let pos_div2 = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(pos_div2, vec![c * 16]), true);
+        self.edit_buffer(EditOp::Insert(pos_div2, vec![c * 16]), true);
     }
 
     fn toggle_insert_mode(&mut self) {
@@ -513,9 +531,9 @@ impl HexEdit {
 
         let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
-            self.do_action(UndoAction::Insert(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOp::Insert(byte_offset, vec![c]), true);
         } else {
-            self.do_action(UndoAction::Write(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOp::Write(byte_offset, vec![c]), true);
         }
     }
 
@@ -624,21 +642,27 @@ impl HexEdit {
         let data_len = data.len() as isize;
         // This is needed to satisfy the borrow checker
         let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
-        self.do_action(UndoAction::Insert(cur_pos_in_bytes, data), true);
+        self.edit_buffer(EditOp::Insert(cur_pos_in_bytes, data), true);
         self.move_cursor(data_len + 1);
     }
 
     fn view_input(&mut self, key: Key) {
-        let action = self.input.editor_input(key);
-        if action.is_none() {
-            return;
+        if let Some(action) = self.input.editor_input(key) {
+            self.do_action(action)
         }
-        match action.unwrap() {
+    }
+
+    fn do_action(&mut self, action: HexEditActions) {
+        self.clear_status();
+        match action {
             // Movement
             HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
             HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
             HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
             HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
+            HexEditActions::MoveLeft => panic!("Make the case handler happy!"),
+            HexEditActions::MoveRight => panic!("Make the case handler happy!"),
+
             HexEditActions::MoveUp => {
                 let t = -self.get_line_width() * 2;
                 self.move_cursor(t)
@@ -666,7 +690,6 @@ impl HexEdit {
                 self.move_cursor(i);
             }
 
-            // UndoAction::Delete
             HexEditActions::Delete => self.delete_at_cursor(false),
             HexEditActions::DeleteWithMove => self.delete_at_cursor(true),
 
@@ -696,6 +719,8 @@ impl HexEdit {
                 }
             }
 
+            HexEditActions::Edit(ch) => panic!("Make the case handler happy!"),
+
             HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
                 let t = self.nibble_active;
@@ -715,16 +740,51 @@ impl HexEdit {
             HexEditActions::AskFind => self.start_find(),
             HexEditActions::AskOpen => self.start_open(),
             HexEditActions::AskSave => self.start_save(),
+            HexEditActions::AskConfig => self.start_config(),
 
-            _  => self.status(format!("key = {:?}", key)),
+            HexEditActions::StartMenu => self.start_menu(),
+
+            _ => self.status(format!("Operation not implemented yet: {:?}", action))
         }
+    }
+
+    fn start_menu(&mut self) {
+        let sr = &self.signal_receiver;
+        let mut menu = OverlayMenu::with_menu(ROOT_ENTRIES);
+        menu.on_selected.connect(signal!(sr with |obj, action| {
+            obj.overlay = None;
+            obj.do_action(action);
+        }));
+        menu.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            } else {
+                obj.clear_status();
+            }
+            obj.overlay = None;
+        }));
+        self.overlay = Some(Box::new(menu));
+    }
+
+    fn start_config(&mut self) {
+        let sr = &self.signal_receiver;
+        let mut config_screen = ConfigScreen::with_config(self.config.clone());
+        config_screen.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            } else {
+                obj.clear_status();
+            }
+            obj.overlay = None;
+        }));
+        self.overlay = Some(Box::new(config_screen));
     }
 
     fn start_help(&mut self) {
         let help_text = include_str!("Help.txt");
         // YAY Lifetimes! (This will hopfully be fixed once rust gains MIR/HIR)
         {
-            let ref sr = self.signal_receiver.as_mut().unwrap();
+            let sr = &self.signal_receiver;
             let mut ot = OverlayText::with_text(help_text.to_string(), false);
             ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
                 if let Some(ref msg) = opt_msg {
@@ -734,7 +794,7 @@ impl HexEdit {
                 }
                 obj.overlay = None;
             }));
-            self.overlay = Some(ot);
+            self.overlay = Some(Box::new(ot));
         }
         {
             self.status("Press Esc to return");
@@ -743,7 +803,7 @@ impl HexEdit {
 
     fn start_logview(&mut self) {
         let logs = self.status_log.clone();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         let mut ot = OverlayText::with_logs(logs, true);
         ot.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             if let Some(ref msg) = opt_msg {
@@ -753,13 +813,13 @@ impl HexEdit {
             }
             obj.overlay = None;
         }));
-        self.overlay = Some(ot);
+        self.overlay = Some(Box::new(ot));
     }
 
     fn start_goto(&mut self) {
         let mut gt = GotoInputLine::new();
         // let mut sender_clone0 = self.sender.clone();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.goto(pos*2);
             obj.input_entry = None;
@@ -774,12 +834,12 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(gt) as Box<InputLine>)
+        self.input_entry = Some(Box::new(gt) as Box<Widget>)
     }
 
     fn start_find(&mut self) {
         let mut find_line = FindInputLine::new();
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         find_line.on_find.connect(signal!(sr with |obj, needle| {
             obj.find_buf(&needle);
             obj.input_entry = None;
@@ -794,12 +854,12 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(find_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(find_line) as Box<Widget>)
     }
 
     fn start_save(&mut self) {
         let mut path_line = PathInputLine::new("Save: ".into());
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.save(&path);
             obj.input_entry = None;
@@ -814,12 +874,12 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
     }
 
     fn start_open(&mut self) {
         let mut path_line = PathInputLine::new("Open: ".into());
-        let ref sr = self.signal_receiver.as_mut().unwrap();
+        let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.open(&path);
             obj.input_entry = None;
@@ -834,13 +894,12 @@ impl HexEdit {
             obj.input_entry = None;
         }));
 
-        self.input_entry = Some(Box::new(path_line) as Box<InputLine>)
+        self.input_entry = Some(Box::new(path_line) as Box<Widget>)
     }
 
     fn process_msgs(&mut self) {
-        let mut sr = self.signal_receiver.take().unwrap();
+        let mut sr = self.signal_receiver.clone();
         sr.run(self);
-        self.signal_receiver = Some(sr);
     }
 
     pub fn input(&mut self, key: Key) {

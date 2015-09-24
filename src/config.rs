@@ -100,6 +100,24 @@ macro_rules! decode_toml {
     });
 }
 
+
+macro_rules! create_toml {
+    ($obj:expr, $pos:ident, $name:ident, $toml_type:ident, $map_func:expr) => ({
+        if ($pos == 0) {
+            return Some((stringify!($name), toml::Value::$toml_type($map_func($obj.$name))))
+        } else {
+            $pos -= 1;
+        }
+    });
+    ($obj:expr, $pos:ident, $name:ident, $toml_type:ident) => ({
+        if ($pos == 0) {
+            return Some((stringify!($name), toml::Value::$toml_type($obj.$name)))
+        } else {
+            $pos -= 1;
+        }
+    });
+}
+
 impl Config {
     pub fn get_config_usage() -> &'static str {
         "
@@ -122,6 +140,20 @@ properties can be set on the commandline as rex -C show_ascii=false.
             Err(ConfigError::InvalidFieldName(key))
         } else {
             Ok(())
+        }
+    }
+
+    fn read_toml(&self, mut p: usize) -> Option<(&'static str, toml::Value)> {
+        create_toml!(self, p, show_ascii, Boolean);
+        create_toml!(self, p, show_linenum, Boolean);
+        create_toml!(self, p, line_width, Integer, |opt_i| if let Some(i) = opt_i { i as i64 } else { 0 });
+        None
+    }
+
+    pub fn values<'a>(&'a self) -> Values<'a> {
+        Values {
+            config: self,
+            pos: 0,
         }
     }
 
@@ -157,5 +189,20 @@ properties can be set on the commandline as rex -C show_ascii=false.
             Err(ref err) if err.kind() == ErrorKind::NotFound => Ok(Default::default()),
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+pub struct Values<'a> {
+    config: &'a Config,
+    pos: usize,
+}
+
+impl<'a> Iterator for Values<'a> {
+    type Item = (&'static str, toml::Value);
+
+    fn next(&mut self) -> Option<(&'static str, toml::Value)> {
+        let pos = self.pos;
+        self.pos += 1;
+        self.config.read_toml(pos)
     }
 }

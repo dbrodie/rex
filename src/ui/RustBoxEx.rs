@@ -1,12 +1,16 @@
-use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD};
+use rustbox::{RustBox, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE};
 use rustbox::Style as RB_Style;
 
 #[derive(Copy, Clone)]
 pub enum Style {
     Default,
     Selection,
+    Hint,
     StatusBar,
     InputLine,
+    MenuShortcut,
+    MenuEntry,
+    MenuTitle
 }
 
 impl Style {
@@ -14,8 +18,12 @@ impl Style {
         match self {
             Style::Default => (RB_NORMAL, Color::Default, Color::Default),
             Style::Selection => (RB_NORMAL, Color::Black, Color::White),
+            Style::Hint => (RB_UNDERLINE, Color::Default, Color::Default),
             Style::StatusBar => (RB_NORMAL, Color::Black, Color::White),
             Style::InputLine => (RB_BOLD, Color::White, Color::Blue),
+            Style::MenuShortcut => (RB_BOLD, Color::Default, Color::Default),
+            Style::MenuEntry => (RB_NORMAL, Color::Default, Color::Default),
+            Style::MenuTitle => (RB_NORMAL, Color::Default, Color::Default),
         }
     }
 }
@@ -23,6 +31,7 @@ impl Style {
 pub trait RustBoxEx {
     fn print_style(&self, x: usize, y: usize, style: Style, s: &str);
     fn print_char_style(&self, x: usize, y: usize, style: Style, c: char);
+    fn print_slice_style(&self, x: usize, y: usize, style: Style, chars: &[char]);
 }
 
 impl RustBoxEx for RustBox {
@@ -34,5 +43,12 @@ impl RustBoxEx for RustBox {
     fn print_char_style(&self, x: usize, y: usize, style: Style, c: char) {
         let (st, fg, bg) = style.to_triple();
         self.print_char(x, y, st, fg, bg, c);
+    }
+
+    fn print_slice_style(&self, x: usize, y: usize, style: Style, chars: &[char]) {
+        let (st, fg, bg) = style.to_triple();
+        for (i, c) in chars.iter().enumerate() {
+            self.print_char(x + i, y, st, fg, bg, *c);
+        }
     }
 }
