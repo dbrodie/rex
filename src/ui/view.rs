@@ -358,10 +358,10 @@ impl HexEdit {
     }
 
     fn status<S: Into<Cow<'static, str>> + ?Sized>(&mut self, st: S) {
-            self.show_last_status = true;
-            let cow: Cow<'static, str> = st.into();
-            self.status_log.push(format!("{}", &cow));
-        }
+        self.show_last_status = true;
+        let cow: Cow<'static, str> = st.into();
+        self.status_log.push(format!("{}", &cow));
+    }
 
     fn clear_status(&mut self) {
         self.show_last_status = false;
