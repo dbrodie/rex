@@ -80,11 +80,6 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
         MenuEntry::CommandEntry('a', "Add", HexEditActions::AskMarkAdd),
         MenuEntry::CommandEntry('g', "Goto", HexEditActions::AskMarkGoto),
     ]),
-    MenuEntry::SubEntries('t', "Tools", &[
-        MenuEntry::SubEntries('m', "More", &[
-            MenuEntry::CommandEntry('m', "Magic", HexEditActions::CheckMagic),
-        ]),
-    ]),
 ];
 
 signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
