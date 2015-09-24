@@ -395,7 +395,6 @@ impl HexEdit {
     }
 
     fn edit_buffer(&mut self, act: EditOp, add_to_undo: bool) -> (isize, isize) {
-        let stat = format!("doing = {:?}", act);
         let mut begin_region: isize;
         let mut end_region: isize;
 
@@ -426,7 +425,6 @@ impl HexEdit {
             }
         }
 
-        self.status(stat);
         (begin_region, end_region)
     }
 
@@ -578,7 +576,6 @@ impl HexEdit {
             None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
         let selection_start = self.selection_start; // Yay! Lifetimes!
-        self.status(format!("selection = {:?}", selection_start));
     }
 
     fn goto(&mut self, pos: isize) {
@@ -724,7 +721,6 @@ impl HexEdit {
             HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
                 let t = self.nibble_active;
-                self.status(format!("nibble_active = {:?}", t));
             },
 
             HexEditActions::HelpView => self.start_help(),
