@@ -1,6 +1,4 @@
 use std::cmp;
-use std::ops::Add;
-use std::ops::Sub;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -18,6 +16,7 @@ use rustbox::keyboard::Key;
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
+use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use super::super::config::Config;
 
 use super::RustBoxEx::{RustBoxEx, Style};
@@ -42,69 +41,18 @@ enum LineNumberMode {
     Long
 }
 
-#[derive(Debug, Copy, Clone)]
-enum LayoutPos<T> {
-    FromStart(T),
-    FromEnd(T),
-}
-
-#[derive(Debug, Copy, Clone)]
-enum LayoutSize<T> {
-    Absolute(T),
-    Relative(T),
-}
-
-#[derive(Debug, Copy, Clone)]
-struct WidgetLayout<T> {
-    top: LayoutPos<T>,
-    left: LayoutPos<T>,
-    width: LayoutSize<T>,
-    height: LayoutSize<T>,
-}
-
-impl<T: Copy + Add<T, Output=T> + Sub<T, Output=T>> LayoutPos<T> {
-    fn relative_to(&self, start: T, end: T) -> T {
-        match *self {
-            LayoutPos::FromStart(n) => start + n,
-            LayoutPos::FromEnd(n) => end - n
-        }
-    }
-}
-
-impl<T: Copy + Add<T, Output=T> + Sub<T, Output=T>> LayoutSize<T> {
-    fn relative_to(&self, size: T) -> T {
-        match *self {
-            LayoutSize::Absolute(n) => n,
-            LayoutSize::Relative(n) => size - n
-        }
-    }
-}
-
-impl<T> WidgetLayout<T>
-        where T: Copy + Add<T, Output=T> + Sub<T, Output=T>
-{
-    fn get_absolute_to(&self, relative_to: Rect<T>) -> Rect<T> {
-        Rect {
-            top: self.top.relative_to(relative_to.top, relative_to.bottom()),
-            left: self.left.relative_to(relative_to.left, relative_to.right()),
-            width: self.width.relative_to(relative_to.width),
-            height: self.height.relative_to(relative_to.height)
-        }
-    }
-}
-
-static OVERLAY_LAYOUT : WidgetLayout<isize> = WidgetLayout {
-    top: LayoutPos::FromStart(0),
-    left: LayoutPos::FromStart(0),
-    width: LayoutSize::Relative(0),
-    height: LayoutSize::Relative(0),
+static OVERLAY_LAYOUT : RelativeRect<isize> = RelativeRect {
+    top: RelativePos::FromStart(0),
+    left: RelativePos::FromStart(0),
+    width: RelativeSize::Relative(0),
+    height: RelativeSize::Relative(0),
 };
 
-static INPUTLINE_LAYOUT : WidgetLayout<isize> = WidgetLayout {
-    top: LayoutPos::FromEnd(1),
-    left: LayoutPos::FromStart(0),
-    width: LayoutSize::Relative(0),
-    height: LayoutSize::Absolute(1),
+static INPUTLINE_LAYOUT : RelativeRect<isize> = RelativeRect {
+    top: RelativePos::FromEnd(1),
+    left: RelativePos::FromStart(0),
+    width: RelativeSize::Relative(0),
+    height: RelativeSize::Absolute(1),
 };
 
 #[derive(Copy,Clone,Debug)]
@@ -165,7 +113,7 @@ pub struct HexEdit {
     insert_mode: bool,
     input: Input,
     undo_stack: Vec<EditOp>,
-    child_widget: Option<(Box<Widget>, WidgetLayout<isize>)>,
+    child_widget: Option<(Box<Widget>, RelativeRect<isize>)>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
@@ -402,8 +350,7 @@ impl HexEdit {
         self.draw_view(rb);
 
         if let Some(&mut (ref mut child_widget, ref layout)) = self.child_widget.as_mut() {
-            let sub_widget_rect = layout.get_absolute_to(self.rect);
-            child_widget.draw(rb, sub_widget_rect, true);
+            child_widget.draw(rb, layout.get_absolute_to(self.rect), true);
         }
 
         self.draw_statusbar(rb);

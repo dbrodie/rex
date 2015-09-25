@@ -10,6 +10,7 @@ use std::char;
 pub mod iter_optional;
 pub mod split_vec;
 pub mod rect;
+pub mod relative_rect;
 #[macro_use] pub mod signals;
 
 /// Create a string with a repeated character.
