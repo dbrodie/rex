@@ -53,7 +53,7 @@ impl OverlayMenu {
                     self.on_selected.signal(command);
                     return true;
                 }
-                &MenuEntry::SubEntries(key, _, sub_menu) if key == c => {
+                &MenuEntry::SubEntries(key, _, _) if key == c => {
                     self.menu_stack.push(&entry);
                     return true;
                 }
@@ -108,10 +108,10 @@ impl Widget for OverlayMenu {
         return true;
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, _: bool) {
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 
-        if (!self.show_help) {
+        if !self.show_help {
             let hint_msg = "Use ? to show/hide the menu help";
 
             rb.print_style(area.left as usize, (area.bottom() - 1) as usize, Style::Default, &clear_line);

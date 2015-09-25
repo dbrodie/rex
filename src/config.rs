@@ -100,21 +100,22 @@ macro_rules! decode_toml {
     });
 }
 
-
 macro_rules! create_toml {
     ($obj:expr, $pos:ident, $name:ident, $toml_type:ident, $map_func:expr) => ({
-        if ($pos == 0) {
+        if $pos == 0 {
             return Some((stringify!($name), toml::Value::$toml_type($map_func($obj.$name))))
         } else {
             $pos -= 1;
         }
+        let _ = $pos;
     });
     ($obj:expr, $pos:ident, $name:ident, $toml_type:ident) => ({
-        if ($pos == 0) {
+        if $pos == 0 {
             return Some((stringify!($name), toml::Value::$toml_type($obj.$name)))
         } else {
             $pos -= 1;
         }
+        let _ = $pos;
     });
 }
 

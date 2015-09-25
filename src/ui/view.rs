@@ -82,10 +82,8 @@ pub enum HexEditActions {
     AskOpen,
     AskSave,
     AskConfig,
-    AskFill,
     AskMarkAdd,
     AskMarkGoto,
-    CheckMagic,
     StartMenu,
 }
 
@@ -574,7 +572,6 @@ impl HexEdit {
             Some(_) => self.selection_start = None,
             None => self.selection_start = Some(self.cursor_nibble_pos / 2)
         }
-        let selection_start = self.selection_start; // Yay! Lifetimes!
     }
 
     fn goto(&mut self, pos: isize) {
@@ -715,11 +712,10 @@ impl HexEdit {
                 }
             }
 
-            HexEditActions::Edit(ch) => panic!("Make the case handler happy!"),
+            HexEditActions::Edit(_) => panic!("Make the case handler happy!"),
 
             HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
-                let t = self.nibble_active;
             },
 
             HexEditActions::HelpView => self.start_help(),
@@ -893,7 +889,7 @@ impl HexEdit {
     }
 
     fn process_msgs(&mut self) {
-        let mut sr = self.signal_receiver.clone();
+        let sr = self.signal_receiver.clone();
         sr.run(self);
     }
 

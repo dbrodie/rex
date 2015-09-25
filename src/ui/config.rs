@@ -11,7 +11,6 @@ use super::super::config::Config;
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
-use super::view::HexEditActions;
 use super::RustBoxEx::{RustBoxEx, Style};
 
 pub enum ConfigScreenActions {
@@ -20,13 +19,6 @@ pub enum ConfigScreenActions {
     Select,
     Cancel,
 }
-
-pub enum MenuEntry<'a, T> where T: 'a {
-    SubEntries(char, &'a str, &'a [MenuEntry<'a, T>]),
-    CommandEntry(char, &'a str, T)
-}
-
-pub type MenuState<T> = &'static [MenuEntry<'static, T>];
 
 pub struct ConfigScreen {
     pub on_cancel: Canceled,
@@ -59,7 +51,7 @@ impl Widget for ConfigScreen {
         return true;
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, _: bool) {
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 
         for i in 0..(area.height as usize) {
