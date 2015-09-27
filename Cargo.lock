@@ -8,7 +8,7 @@ dependencies = [
  "itertools 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rex_utils 0.1.0",
- "rustbox 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustbox 0.7.1 (git+https://github.com/gchp/rustbox.git?rev=1fa89a5a6c8109e15bbafb897f3956081943c838)",
  "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -142,7 +142,7 @@ dependencies = [
 [[package]]
 name = "rustbox"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/gchp/rustbox.git?rev=1fa89a5a6c8109e15bbafb897f3956081943c838#1fa89a5a6c8109e15bbafb897f3956081943c838"
 dependencies = [
  "bitflags 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gag 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
