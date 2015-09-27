@@ -1,5 +1,6 @@
 use std::default::Default;
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::cmp;
 use rustbox::RustBox;
 use rustbox::keyboard::Key;
@@ -22,12 +23,12 @@ pub enum ConfigScreenActions {
 
 pub struct ConfigScreen {
     pub on_cancel: Canceled,
-    config: Rc<Config>,
+    config: Rc<RefCell<Config>>,
     cursor_line: isize,
 }
 
 impl ConfigScreen {
-    pub fn with_config(config: Rc<Config>) -> ConfigScreen {
+    pub fn with_config(config: Rc<RefCell<Config>>) -> ConfigScreen {
         ConfigScreen {
             on_cancel: Default::default(),
             config: config,
@@ -52,13 +53,14 @@ impl Widget for ConfigScreen {
     }
 
     fn draw(&mut self, rb: &RustBox, area: Rect<isize>, _: bool) {
+        rb.set_cursor(-1, -1);
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 
         for i in 0..(area.height as usize) {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default, &clear_line);
         }
 
-        for (i, (name, value)) in self.config.values().enumerate() {
+        for (i, (name, value)) in self.config.borrow().values().enumerate() {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default,
                 &format!("{} = {}", name, value));
         }

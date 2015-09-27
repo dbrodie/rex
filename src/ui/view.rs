@@ -1,4 +1,5 @@
 use std::cmp;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -99,7 +100,7 @@ signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
 
 pub struct HexEdit {
     buffer: SplitVec,
-    config: Rc<Config>,
+    config: Rc<RefCell<Config>>,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
@@ -122,7 +123,7 @@ impl HexEdit {
     pub fn new(config: Config) -> HexEdit {
         HexEdit {
             buffer: SplitVec::new(),
-            config: Rc::new(config),
+            config: Rc::new(RefCell::new(config)),
             rect: Default::default(),
             cursor_nibble_pos: 0,
             data_offset: 0,
@@ -152,7 +153,7 @@ impl HexEdit {
     }
 
     fn get_linenumber_mode(&self) -> LineNumberMode {
-        if !self.config.show_linenum {
+        if !self.config.borrow().show_linenum {
             LineNumberMode::None
         } else if self.buffer.len() <= 0xFFFF {
             LineNumberMode::Short
@@ -170,14 +171,14 @@ impl HexEdit {
     }
 
     fn get_line_width(&self) -> isize {
-        self.config.line_width.unwrap_or(self.get_bytes_per_row() as u32) as isize
+        self.config.borrow().line_width.unwrap_or(self.get_bytes_per_row() as u32) as isize
     }
 
     fn get_bytes_per_row(&self) -> isize {
         // This is the number of cells on the screen that are used for each byte.
         // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
         // the ascii view, if it is shown, we need another one.
-        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
+        let cells_per_byte = if self.config.borrow().show_ascii { 4 } else { 3 };
 
         (self.rect.width - self.get_linenumber_width()) / cells_per_byte
     }
@@ -245,7 +246,7 @@ impl HexEdit {
                               row as isize);
             };
 
-            if self.config.show_ascii {
+            if self.config.borrow().show_ascii {
                 // Now let's draw the byte window
                 let byte_char = if let Some(&byte) = maybe_byte {
                     let bc = byte as char;
