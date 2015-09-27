@@ -809,7 +809,6 @@ impl HexEdit {
 
     fn start_goto(&mut self) {
         let mut gt = GotoInputLine::new();
-        // let mut sender_clone0 = self.sender.clone();
         let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.child_widget = None;
