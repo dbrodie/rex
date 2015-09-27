@@ -18,8 +18,8 @@ toml = "0.1"
 docopt = "0.6"
 
 [dependencies.rustbox]
-git = "https://github.com/gchp/rustbox.git"
-rev = "1fa89a5a6c8109e15bbafb897f3956081943c838"
+git = "https://github.com/dbrodie/rustbox.git"
+rev = "c79605cc30caefaa5c6c14b29dbccc5e8713e314"
 
 [dependencies.rex_utils]
 path = "rex_utils"
