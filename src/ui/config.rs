@@ -61,7 +61,12 @@ impl Widget for ConfigScreen {
         }
 
         for (i, (name, value)) in self.config.borrow().values().enumerate() {
-            rb.print_style(area.left as usize, area.top as usize + i, Style::Default,
+            let style = if i != self.cursor_line as usize {
+                Style::Default
+            } else {
+                Style::Selection
+            };
+            rb.print_style(area.left as usize, area.top as usize + i, style,
                 &format!("{} = {}", name, value));
         }
     }
