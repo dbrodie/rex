@@ -7,18 +7,25 @@ Arrows, PageUp/Down, Home/End - Move around as you would expect
 General:
 C-? - Help (this screen)
 C-Q - Quit
-C-E - Edit file
-C-W - Write a file
+C-O - Open a file
+C-S - Save file
 
 Editing:
-C-O - Toggle between overwrite and insert mode (overwrite default)
+Arrow keys, Page Up/Down, Home/End - Move around
+Insert - Toggle between overwrite and insert mode (overwrite default)
 Tab - Move between byte and ascii view
 Del/Bksp - As you would expect
-Edit using regular keys.
 C-Z - Undo
 C-G - Goto position
 C-F - Find text/bytes
 
 Selection:
-C-S - Toggle selection mode
-C-X/C/V - Cut/Copy/Paste respectively, as you would expect
+C-Space - Toggle selection mode
+C-X/C/V - Cut/Copy/Paste respectively
+
+Menu:
+(still in development)
+C-\ - Opens menu
+? - Toggle help UI in menu
+The menu, by default, opens without UI, to allow for quick action selection,
+without distractions. Use ? to toggle showing the UI.
