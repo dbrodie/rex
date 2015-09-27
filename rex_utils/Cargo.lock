@@ -2,11 +2,11 @@
 name = "rex_utils"
 version = "0.1.0"
 dependencies = [
- "itertools 0.3.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "itertools"
-version = "0.3.25"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
