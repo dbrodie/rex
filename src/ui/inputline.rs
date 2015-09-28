@@ -327,3 +327,47 @@ impl Widget for PathInputLine {
         self.base.draw(rb, area, has_focus)
     }
 }
+
+signal_decl!{ConfigSetEvent(String)}
+
+pub struct ConfigSetLine {
+    base: BaseInputLine,
+    pub on_done: ConfigSetEvent,
+    pub on_cancel: Canceled,
+}
+
+impl ConfigSetLine {
+    pub fn new(prefix: String) -> ConfigSetLine {
+        ConfigSetLine {
+            base: BaseInputLine::new(prefix),
+            on_done: Default::default(),
+            on_cancel: Default::default()
+        }
+    }
+}
+
+impl Widget for ConfigSetLine {
+    fn input(&mut self, input: &Input, key: Key) -> bool {
+        if self.base.input(input, key) { return true }
+
+        let action = if let Some(action) = input.inputline_input(key) { action } else {
+            return false;
+        };
+
+        match action {
+            BaseInputLineActions::Ok => {
+                self.on_done.signal(str::from_utf8(&self.base.data).unwrap().to_owned());
+                true
+            }
+            BaseInputLineActions::Cancel => {
+                self.on_cancel.signal(None);
+                true
+            }
+            _ => false
+        }
+    }
+
+    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+        self.base.draw(rb, area, has_focus)
+    }
+}

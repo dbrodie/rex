@@ -23,7 +23,7 @@ use super::super::config::Config;
 use super::RustBoxEx::{RustBoxEx, Style};
 use super::input::Input;
 use super::widget::Widget;
-use super::inputline::{GotoInputLine, FindInputLine, PathInputLine};
+use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
 use super::overlay::OverlayText;
 use super::config::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
@@ -777,7 +777,25 @@ impl HexEdit {
     }
 
     fn start_config_edit(&mut self, conf_name: &'static str) {
-        println!("PLACEHOLDER {}", conf_name);
+        let sr = &self.signal_receiver;
+        let mut config_set = ConfigSetLine::new(format!("{} = ", conf_name));
+        config_set.on_cancel.connect(signal!(sr with |obj, opt_msg| {
+            obj.child_widget = None;
+            if let Some(ref msg) = opt_msg {
+                obj.status(msg.clone());
+            } else {
+                obj.clear_status();
+            }
+        }));
+        config_set.on_done.connect(signal!(sr with |obj, config_value| {
+            obj.child_widget = None;
+            obj.set_config(conf_name, &config_value);
+        }));
+        self.child_widget = Some((Box::new(config_set), INPUTLINE_LAYOUT));
+    }
+
+    fn set_config(&mut self, key: &str, val: &str) {
+        self.config.borrow_mut().set_from_key_value(key, &val);
     }
 
     fn start_help(&mut self) {
