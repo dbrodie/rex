@@ -158,6 +158,11 @@ properties can be set on the commandline as rex -C show_ascii=false.
         }
     }
 
+    pub fn set_from_key_value(&mut self, key: &str, val: &str) -> Result<(), ConfigError> {
+        // TODO: We can make this more efficient
+        self.set_from_string(&format!("{} = {}", key, val))
+    }
+
     pub fn set_from_string(&mut self, set_line: &str) -> Result<(), ConfigError> {
         let mut parser = toml::Parser::new(&set_line);
         if let Some(table) = parser.parse() {
