@@ -21,8 +21,11 @@ pub enum ConfigScreenActions {
     Cancel,
 }
 
+signal_decl!{ConfigSelected(&'static str)}
+
 pub struct ConfigScreen {
     pub on_cancel: Canceled,
+    pub on_selected: ConfigSelected,
     config: Rc<RefCell<Config>>,
     cursor_line: isize,
 }
@@ -31,8 +34,15 @@ impl ConfigScreen {
     pub fn with_config(config: Rc<RefCell<Config>>) -> ConfigScreen {
         ConfigScreen {
             on_cancel: Default::default(),
+            on_selected: Default::default(),
             config: config,
             cursor_line: 0,
+        }
+    }
+
+    fn select(&mut self) {
+        if let Some((name, _)) = self.config.borrow().values().nth(self.cursor_line as usize) {
+            self.on_selected.signal(name);
         }
     }
 }
@@ -46,7 +56,7 @@ impl Widget for ConfigScreen {
         match action {
             ConfigScreenActions::Down => { self.cursor_line = self.cursor_line + 1; }
             ConfigScreenActions::Up =>  { self.cursor_line = cmp::max(0, self.cursor_line - 1); }
-            ConfigScreenActions::Select => (),
+            ConfigScreenActions::Select => (self.select()),
             ConfigScreenActions::Cancel => { self.on_cancel.signal(None); }
         };
         return true;

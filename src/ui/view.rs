@@ -769,7 +769,15 @@ impl HexEdit {
                 obj.clear_status();
             }
         }));
+        config_screen.on_selected.connect(signal!(sr with |obj, conf_name| {
+            obj.child_widget = None;
+            obj.start_config_edit(conf_name);
+        }));
         self.child_widget = Some((Box::new(config_screen), OVERLAY_LAYOUT));
+    }
+
+    fn start_config_edit(&mut self, conf_name: &'static str) {
+        println!("PLACEHOLDER {}", conf_name);
     }
 
     fn start_help(&mut self) {
