@@ -795,7 +795,10 @@ impl HexEdit {
     }
 
     fn set_config(&mut self, key: &str, val: &str) {
-        self.config.borrow_mut().set_from_key_value(key, &val);
+        let res = self.config.borrow_mut().set_from_key_value(key, &val);
+        res.unwrap_or_else(
+            |e| self.status(format!("Can't set {} to {}: {}", key, val, e))
+        );
     }
 
     fn start_help(&mut self) {
