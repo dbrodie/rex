@@ -1,10 +1,8 @@
+extern crate docopt;
+extern crate gag;
 extern crate rustbox;
 extern crate rustc_serialize;
-extern crate gag;
-extern crate toml;
-extern crate itertools;
-extern crate docopt;
-#[macro_use] extern crate rex_utils;
+extern crate rex;
 
 use std::path::Path;
 use std::error::Error;
@@ -12,15 +10,13 @@ use std::io;
 use std::io::Write;
 use std::process;
 use docopt::Docopt;
+
 use rustbox::{RustBox, Event, InputMode, InitOptions};
 use rustbox::keyboard::Key;
 use gag::Hold;
 
-mod config;
-mod ui;
-
-use ui::view::HexEdit;
-use config::Config;
+use rex::ui::view::HexEdit;
+use rex::config::Config;
 
 static USAGE: &'static str = "
 Usage: rex [options] [-C CONF... FILE]
@@ -54,7 +50,7 @@ fn main() {
     if args.flag_help {
         println!("{}", USAGE.trim());
         println!("");
-        println!("{}", config::Config::get_config_usage().trim());
+        println!("{}", Config::get_config_usage().trim());
         process::exit(0);
     }
 

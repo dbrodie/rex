@@ -27,7 +27,7 @@ To compile the latest binary:
 git clone git@github.com:dbrodie/rex.git
 cd rex
 cargo build --release
-./target/release/rex --help
+./target/release/trex --help
 ```
 
 To get help about how to use the program, after running it, press `Ctrl-/`.
