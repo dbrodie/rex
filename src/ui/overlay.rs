@@ -2,7 +2,6 @@ use std::iter;
 use std::cmp;
 use std::str::Lines;
 use std::slice::Iter;
-use rustbox::RustBox;
 use rustbox::keyboard::Key;
 
 use rex_utils;
@@ -10,7 +9,7 @@ use rex_utils::iter_optional::IterOptionalExt;
 use rex_utils::rect::Rect;
 
 use super::common::Canceled;
-use super::RustBoxEx::{RustBoxEx, Style};
+use super::super::frontend::{Frontend, Style};
 use super::input::Input;
 use super::widget::Widget;
 
@@ -95,7 +94,7 @@ impl Widget for OverlayText {
         }
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
         let iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
                     // Chomp the width of each line

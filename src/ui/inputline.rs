@@ -1,12 +1,11 @@
 use std::str;
 use rustc_serialize::hex::FromHex;
 use std::path::PathBuf;
-use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::rect::Rect;
-use super::RustBoxEx::{RustBoxEx, Style};
+use super::super::frontend::{Frontend, Style};
 use super::input::Input;
 use super::widget::Widget;
 
@@ -76,7 +75,7 @@ impl Widget for BaseInputLine {
         return true;
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &rex_utils::string_with_repeat(' ', area.width as usize));
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
@@ -182,7 +181,7 @@ impl Widget for GotoInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -279,7 +278,7 @@ impl Widget for FindInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -323,7 +322,7 @@ impl Widget for PathInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -367,7 +366,7 @@ impl Widget for ConfigSetLine {
         }
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }

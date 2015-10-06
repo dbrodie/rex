@@ -11,10 +11,12 @@ use std::io::Write;
 use std::process;
 use docopt::Docopt;
 
-use rustbox::{RustBox, Event, InputMode, InitOptions};
+use rustbox::{Event};
 use rustbox::keyboard::Key;
 use gag::Hold;
 
+use rex::frontend::Frontend;
+use rex::frontend::rustbox::RustBoxFrontend;
 use rex::ui::view::HexEdit;
 use rex::config::Config;
 
@@ -77,16 +79,13 @@ fn main() {
 
     let hold = (Hold::stdout().unwrap(), Hold::stderr().unwrap());
 
-    let rb = RustBox::init(InitOptions{
-        buffer_stderr: false,
-        input_mode: InputMode::Esc,
-    }).unwrap();
+    let frontend = RustBoxFrontend::new();
 
-    edit.resize(rb.width() as i32, rb.height() as i32);
-    edit.draw(&rb);
-    rb.present();
+    edit.resize(frontend.width() as i32, frontend.height() as i32);
+    edit.draw(&frontend);
+    frontend.present();
     loop {
-        let event = rb.poll_event(false).unwrap();
+        let event = frontend.poll_event();
         match event {
             // This case is here, since we want to have a 'way ouy' till we fixed bugs
             Event::KeyEvent(Some(Key::Ctrl('q'))) => break,
@@ -94,10 +93,10 @@ fn main() {
             Event::ResizeEvent(w, h) => { edit.resize(w, h) }
             _ => ()
         };
-        rb.clear();
-        edit.draw(&rb);
-        rb.present();
+        frontend.clear();
+        edit.draw(&frontend);
+        frontend.present();
     }
-    drop(rb);
+    drop(frontend);
     drop(hold);
 }

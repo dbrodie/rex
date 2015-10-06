@@ -11,7 +11,6 @@ use std::ascii::AsciiExt;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::rc::Rc;
-use rustbox::{RustBox};
 use rustbox::keyboard::Key;
 
 use rex_utils;
@@ -20,7 +19,7 @@ use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use super::super::config::Config;
 
-use super::RustBoxEx::{RustBoxEx, Style};
+use super::super::frontend::{Frontend, Style};
 use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
@@ -187,7 +186,7 @@ impl HexEdit {
         self.get_line_width() * self.rect.height
     }
 
-    fn draw_line_number(&self, rb: &RustBox, row: usize, line_number: usize) {
+    fn draw_line_number(&self, rb: &Frontend, row: usize, line_number: usize) {
         match self.get_linenumber_mode() {
             LineNumberMode::None => (),
             LineNumberMode::Short => {
@@ -199,7 +198,7 @@ impl HexEdit {
         };
     }
 
-    fn draw_line(&self, rb: &RustBox, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
+    fn draw_line(&self, rb: &Frontend, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
         let byte_view_start = nibble_view_start + self.get_bytes_per_row() as usize * 3;
@@ -290,7 +289,7 @@ impl HexEdit {
         }
     }
 
-    pub fn draw_view(&self, rb: &RustBox) {
+    pub fn draw_view(&self, rb: &Frontend) {
         let start_iter = self.data_offset as usize;
         let stop_iter = cmp::min(start_iter + self.get_bytes_per_screen() as usize, self.buffer.len());
 
@@ -310,7 +309,7 @@ impl HexEdit {
         }
     }
 
-    fn draw_statusbar(&self, rb: &RustBox) {
+    fn draw_statusbar(&self, rb: &Frontend) {
         rb.print_style(0, rb.height() - 1, Style::StatusBar, &rex_utils::string_with_repeat(' ', rb.width()));
         if self.show_last_status {
             if let Some(ref status_line) = self.status_log.last() {
@@ -345,7 +344,7 @@ impl HexEdit {
         rb.print_style(x_pos, rb.height() - 1, Style::StatusBar, &right_status[start_index..]);
     }
 
-    pub fn draw(&mut self, rb: &RustBox) {
+    pub fn draw(&mut self, rb: &Frontend) {
         self.draw_view(rb);
 
         if let Some(&mut (ref mut child_widget, ref layout)) = self.child_widget.as_mut() {
