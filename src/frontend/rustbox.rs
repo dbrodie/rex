@@ -1,10 +1,23 @@
-use rustbox::{RustBox, Event, InputMode, InitOptions, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE};
+use rustbox::{RustBox, InputMode, InitOptions, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE};
+use rustbox::keyboard::Key;
+use rustbox::Event as RB_Event;
 use rustbox::Style as RB_Style;
 
-use super::{Frontend, Style};
+use super::{Frontend, Style, Event, KeyPress};
 
 pub struct RustBoxFrontend {
     rustbox: RustBox,
+}
+
+macro_rules! simple_enum_convert {
+    ($from:ident : $from_type:ident into $to_type:ident for $($case:ident),*) => ({
+        match $from {
+            $(
+                $from_type::$case => return $to_type::$case,
+            )*
+            _ => (),
+        };
+    })
 }
 
 impl RustBoxFrontend {
@@ -30,8 +43,29 @@ impl RustBoxFrontend {
         }
     }
 
-    pub fn poll_event(&self) -> Event {
-        self.rustbox.poll_event(false).unwrap()
+    fn convert_key(key: Key) -> KeyPress {
+        simple_enum_convert!(key : Key into KeyPress for
+            Left,
+            Right,
+            Up,
+            Down,
+            PageUp,
+            PageDown,
+            Home,
+            End,
+            Backspace,
+            Delete,
+            Tab,
+            Insert,
+            Enter,
+            Esc
+        );
+        match key {
+            Key::Char('\u{0}') => KeyPress::Shortcut(' '),
+            Key::Char(c) => KeyPress::Key(c),
+            Key::Ctrl(c) => KeyPress::Shortcut(c),
+            _ => panic!("Unhandled key found!"),
+        }
     }
 }
 
@@ -42,6 +76,19 @@ impl Frontend for RustBoxFrontend {
 
     fn present(&self) {
         self.rustbox.present();
+    }
+
+    fn poll_event(&self) -> Event {
+        loop {
+            match self.rustbox.poll_event(false).unwrap() {
+                RB_Event::KeyEvent(Some(key)) => return Event::KeyPressEvent(RustBoxFrontend::convert_key(key)),
+                RB_Event::ResizeEvent(w, h) => return Event::Resize(w as usize, h as usize),
+                e @ _ => {
+                    println!("Unhandled rustbox event");
+                    continue;
+                }
+            }
+        }
     }
 
     fn print_style(&self, x: usize, y: usize, style: Style, s: &str) {

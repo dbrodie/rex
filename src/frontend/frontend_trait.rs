@@ -1,4 +1,4 @@
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Style {
     Default,
     Selection,
@@ -10,6 +10,31 @@ pub enum Style {
     MenuTitle
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum KeyPress {
+    Key(char),
+    Shortcut(char),
+    Left,
+    Right,
+    Up,
+    Down,
+    PageUp,
+    PageDown,
+    Home,
+    End,
+    Backspace,
+    Delete,
+    Tab,
+    Insert,
+    Enter,
+    Esc
+}
+
+pub enum Event {
+    KeyPressEvent(KeyPress),
+    Resize(usize, usize),
+}
+
 pub trait Frontend {
     fn clear(&self);
     fn present(&self);
@@ -19,4 +44,5 @@ pub trait Frontend {
     fn set_cursor(&self, x: isize, y: isize);
     fn height(&self) -> usize;
     fn width(&self) -> usize;
+    fn poll_event(&self) -> Event;
 }

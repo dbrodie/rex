@@ -1,11 +1,10 @@
 use std::str;
 use rustc_serialize::hex::FromHex;
 use std::path::PathBuf;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::rect::Rect;
-use super::super::frontend::{Frontend, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 use super::input::Input;
 use super::widget::Widget;
 
@@ -39,7 +38,7 @@ impl BaseInputLine {
 }
 
 impl Widget for BaseInputLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.inputline_input(key) { action } else {
             return false;
         };
@@ -145,7 +144,7 @@ impl GotoInputLine {
 }
 
 impl Widget for GotoInputLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         if self.base.input(input, key) { return true }
 
         let action = if let Some(action) = input.inputline_input(key) { action } else {
@@ -242,7 +241,7 @@ impl FindInputLine {
 }
 
 impl Widget for FindInputLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         if self.base.input(input, key) { return true }
 
         let action = if let Some(action) = input.inputline_input(key) { action } else {
@@ -302,7 +301,7 @@ impl PathInputLine {
 }
 
 impl Widget for PathInputLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         if self.base.input(input, key) { return true }
 
         let action = if let Some(action) = input.inputline_input(key) { action } else {
@@ -346,7 +345,7 @@ impl ConfigSetLine {
 }
 
 impl Widget for ConfigSetLine {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         if self.base.input(input, key) { return true }
 
         let action = if let Some(action) = input.inputline_input(key) { action } else {

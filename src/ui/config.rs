@@ -2,7 +2,6 @@ use std::default::Default;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::rect::Rect;
@@ -11,7 +10,7 @@ use super::super::config::Config;
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
-use super::super::frontend::{Frontend, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 
 pub enum ConfigScreenActions {
     Up,
@@ -47,7 +46,7 @@ impl ConfigScreen {
 }
 
 impl Widget for ConfigScreen {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.config_input(key) { action } else {
             return false;
         };

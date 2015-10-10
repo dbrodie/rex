@@ -11,7 +11,6 @@ use std::ascii::AsciiExt;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::rc::Rc;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
@@ -19,7 +18,7 @@ use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use super::super::config::Config;
 
-use super::super::frontend::{Frontend, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
@@ -639,7 +638,7 @@ impl HexEdit {
         self.move_cursor(data_len + 1);
     }
 
-    fn view_input(&mut self, key: Key) {
+    fn view_input(&mut self, key: KeyPress) {
         if let Some(action) = self.input.editor_input(key) {
             self.do_action(action)
         }
@@ -921,7 +920,7 @@ impl HexEdit {
         sr.run(self);
     }
 
-    pub fn input(&mut self, key: Key) {
+    pub fn input(&mut self, key: KeyPress) {
         self.process_msgs();
 
         if let Some((ref mut child_widget, _)) = self.child_widget {

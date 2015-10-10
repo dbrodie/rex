@@ -2,14 +2,13 @@ use std::iter;
 use std::cmp;
 use std::str::Lines;
 use std::slice::Iter;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::iter_optional::IterOptionalExt;
 use rex_utils::rect::Rect;
 
 use super::common::Canceled;
-use super::super::frontend::{Frontend, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 use super::input::Input;
 use super::widget::Widget;
 
@@ -82,7 +81,7 @@ impl OverlayText {
 }
 
 impl Widget for OverlayText {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.overlay_input(key) { action } else {
             return false;
         };

@@ -11,11 +11,9 @@ use std::io::Write;
 use std::process;
 use docopt::Docopt;
 
-use rustbox::{Event};
-use rustbox::keyboard::Key;
 use gag::Hold;
 
-use rex::frontend::Frontend;
+use rex::frontend::{Frontend, Event, KeyPress};
 use rex::frontend::rustbox::RustBoxFrontend;
 use rex::ui::view::HexEdit;
 use rex::config::Config;
@@ -88,10 +86,10 @@ fn main() {
         let event = frontend.poll_event();
         match event {
             // This case is here, since we want to have a 'way ouy' till we fixed bugs
-            Event::KeyEvent(Some(Key::Ctrl('q'))) => break,
-            Event::KeyEvent(Some(key)) => edit.input(key),
-            Event::ResizeEvent(w, h) => { edit.resize(w, h) }
-            _ => ()
+            Event::KeyPressEvent(KeyPress::Shortcut('q')) => break,
+            Event::KeyPressEvent(key) => edit.input(key),
+            Event::Resize(w, h) => { edit.resize(w as i32, h as i32) }
+            // _ => ()
         };
         frontend.clear();
         edit.draw(&frontend);
