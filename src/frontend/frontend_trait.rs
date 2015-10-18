@@ -30,6 +30,7 @@ pub enum KeyPress {
     Esc
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum Event {
     KeyPressEvent(KeyPress),
     Resize(usize, usize),
