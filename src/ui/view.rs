@@ -363,6 +363,11 @@ impl HexEdit {
         self.show_last_status = false;
     }
 
+    pub fn open_vec(&mut self, vec: Vec<u8>) {
+        self.buffer = SplitVec::from_vec(vec);
+        self.reset();
+    }
+
     pub fn open(&mut self, path: &Path) {
         let mut v = vec![];
         if let Err(e) = File::open(path).and_then(|mut f| f.read_to_end(&mut v)) {
@@ -936,5 +941,9 @@ impl HexEdit {
         self.rect.height = height as isize - 1;  // Substract 1 for the status line on the bottom
         self.rect.width = width as isize;
         self.update_cursor();
+    }
+
+    pub fn get_position(&mut self) -> isize {
+        self.cursor_nibble_pos / 2
     }
 }
