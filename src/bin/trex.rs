@@ -77,10 +77,10 @@ fn main() {
 
     let hold = (Hold::stdout().unwrap(), Hold::stderr().unwrap());
 
-    let frontend = RustBoxFrontend::new();
+    let mut frontend = RustBoxFrontend::new();
 
     edit.resize(frontend.width() as i32, frontend.height() as i32);
-    edit.draw(&frontend);
+    edit.draw(&mut frontend);
     frontend.present();
     loop {
         let event = frontend.poll_event();
@@ -92,7 +92,7 @@ fn main() {
             // _ => ()
         };
         frontend.clear();
-        edit.draw(&frontend);
+        edit.draw(&mut frontend);
         frontend.present();
     }
     drop(frontend);

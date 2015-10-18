@@ -74,7 +74,7 @@ impl Widget for BaseInputLine {
         return true;
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &rex_utils::string_with_repeat(' ', area.width as usize));
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
@@ -180,7 +180,7 @@ impl Widget for GotoInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -277,7 +277,7 @@ impl Widget for FindInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -321,7 +321,7 @@ impl Widget for PathInputLine {
         }
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }
@@ -365,7 +365,7 @@ impl Widget for ConfigSetLine {
         }
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         self.base.draw(rb, area, has_focus)
     }
 }

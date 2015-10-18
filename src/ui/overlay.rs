@@ -93,7 +93,7 @@ impl Widget for OverlayText {
         }
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         let repeat: iter::Repeat<Option<&str>> = iter::repeat(None);
         let iter = self.text.to_lines().optional(self.reverse, |it| it.rev(), |it| it).map(
                     // Chomp the width of each line

@@ -6,5 +6,5 @@ use super::input::Input;
 
 pub trait Widget {
     fn input(&mut self, input: &Input, key: KeyPress) -> bool;
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, has_focus: bool);
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool);
 }

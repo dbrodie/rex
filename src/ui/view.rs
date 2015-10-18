@@ -185,7 +185,7 @@ impl HexEdit {
         self.get_line_width() * self.rect.height
     }
 
-    fn draw_line_number(&self, rb: &Frontend, row: usize, line_number: usize) {
+    fn draw_line_number(&self, rb: &mut Frontend, row: usize, line_number: usize) {
         match self.get_linenumber_mode() {
             LineNumberMode::None => (),
             LineNumberMode::Short => {
@@ -197,7 +197,7 @@ impl HexEdit {
         };
     }
 
-    fn draw_line(&self, rb: &Frontend, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
+    fn draw_line(&self, rb: &mut Frontend, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
         let byte_view_start = nibble_view_start + self.get_bytes_per_row() as usize * 3;
@@ -288,7 +288,7 @@ impl HexEdit {
         }
     }
 
-    pub fn draw_view(&self, rb: &Frontend) {
+    pub fn draw_view(&self, rb: &mut Frontend) {
         let start_iter = self.data_offset as usize;
         let stop_iter = cmp::min(start_iter + self.get_bytes_per_screen() as usize, self.buffer.len());
 
@@ -343,7 +343,7 @@ impl HexEdit {
         rb.print_style(x_pos, rb.height() - 1, Style::StatusBar, &right_status[start_index..]);
     }
 
-    pub fn draw(&mut self, rb: &Frontend) {
+    pub fn draw(&mut self, rb: &mut Frontend) {
         self.draw_view(rb);
 
         if let Some(&mut (ref mut child_widget, ref layout)) = self.child_widget.as_mut() {

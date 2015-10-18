@@ -78,7 +78,7 @@ impl Frontend for RustBoxFrontend {
         self.rustbox.present();
     }
 
-    fn poll_event(&self) -> Event {
+    fn poll_event(&mut self) -> Event {
         loop {
             match self.rustbox.poll_event(false).unwrap() {
                 RB_Event::KeyEvent(Some(key)) => return Event::KeyPressEvent(RustBoxFrontend::convert_key(key)),
@@ -108,7 +108,7 @@ impl Frontend for RustBoxFrontend {
         }
     }
 
-    fn set_cursor(&self, x: isize, y: isize) {
+    fn set_cursor(&mut self, x: isize, y: isize) {
         self.rustbox.set_cursor(x, y);
     }
 

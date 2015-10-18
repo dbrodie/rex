@@ -60,7 +60,7 @@ impl Widget for ConfigScreen {
         return true;
     }
 
-    fn draw(&mut self, rb: &Frontend, area: Rect<isize>, _: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, _: bool) {
         rb.set_cursor(-1, -1);
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 

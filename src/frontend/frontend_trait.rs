@@ -41,8 +41,8 @@ pub trait Frontend {
     fn print_style(&self, x: usize, y: usize, style: Style, s: &str);
     fn print_char_style(&self, x: usize, y: usize, style: Style, c: char);
     fn print_slice_style(&self, x: usize, y: usize, style: Style, chars: &[char]);
-    fn set_cursor(&self, x: isize, y: isize);
+    fn set_cursor(&mut self, x: isize, y: isize);
     fn height(&self) -> usize;
     fn width(&self) -> usize;
-    fn poll_event(&self) -> Event;
+    fn poll_event(&mut self) -> Event;
 }
