@@ -5,6 +5,7 @@ mod util;
 use rex::frontend::{Event, KeyPress};
 
 #[test]
+/// Test that moving over the top works
 fn test_top_cutoff() {
     let (mut edit, mut frontend) = util::simple_init(0x1000);
 
@@ -27,6 +28,7 @@ fn test_top_cutoff() {
 }
 
 #[test]
+/// Test that moving under the bottom works
 fn test_bottom_cutoff() {
     let size: isize = 0x1000;
     let (mut edit, mut frontend) = util::simple_init(size as usize);
