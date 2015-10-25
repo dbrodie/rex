@@ -1,6 +1,4 @@
 use std::default::Default;
-use rustbox::RustBox;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::rect::Rect;
@@ -9,7 +7,7 @@ use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
 use super::view::HexEditActions;
-use super::RustBoxEx::{RustBoxEx, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 
 pub enum MenuActions {
     Key(char),
@@ -75,7 +73,7 @@ impl OverlayMenu {
         self.menu_stack.pop();
     }
 
-    fn draw_menu_location(&mut self, rb: &RustBox, x: isize, y: isize) {
+    fn draw_menu_location(&mut self, rb: &Frontend, x: isize, y: isize) {
         let mut x_pos = 0;
         rb.print_style((x + x_pos) as usize, y as usize, Style::MenuTitle, " > ");
         x_pos += 3;
@@ -94,7 +92,7 @@ impl OverlayMenu {
 }
 
 impl Widget for OverlayMenu {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.menu_input(key) { action } else {
             return false;
         };
@@ -108,7 +106,7 @@ impl Widget for OverlayMenu {
         return true;
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, _: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, _: bool) {
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 
         if !self.show_help {

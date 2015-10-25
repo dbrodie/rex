@@ -2,8 +2,6 @@ use std::default::Default;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
-use rustbox::RustBox;
-use rustbox::keyboard::Key;
 
 use rex_utils;
 use rex_utils::rect::Rect;
@@ -12,7 +10,7 @@ use super::super::config::Config;
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
-use super::RustBoxEx::{RustBoxEx, Style};
+use super::super::frontend::{Frontend, Style, KeyPress};
 
 pub enum ConfigScreenActions {
     Up,
@@ -48,7 +46,7 @@ impl ConfigScreen {
 }
 
 impl Widget for ConfigScreen {
-    fn input(&mut self, input: &Input, key: Key) -> bool {
+    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.config_input(key) { action } else {
             return false;
         };
@@ -62,7 +60,7 @@ impl Widget for ConfigScreen {
         return true;
     }
 
-    fn draw(&mut self, rb: &RustBox, area: Rect<isize>, _: bool) {
+    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, _: bool) {
         rb.set_cursor(-1, -1);
         let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
 

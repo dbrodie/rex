@@ -1,5 +1,4 @@
-use rustbox::keyboard::Key;
-
+use super::super::frontend::KeyPress;
 use super::view::HexEditActions;
 use super::inputline::BaseInputLineActions;
 use super::overlay::OverlayActions;
@@ -12,33 +11,33 @@ impl Input {
     pub fn new() -> Input {
         Input
     }
-    pub fn editor_input(&self, key: Key) -> Option<HexEditActions> {
+    pub fn editor_input(&self, key: KeyPress) -> Option<HexEditActions> {
         match key {
-            Key::Left => Some(HexEditActions::MoveLeft),
-            Key::Right => Some(HexEditActions::MoveRight),
-            Key::Up => Some(HexEditActions::MoveUp),
-            Key::Down => Some(HexEditActions::MoveDown),
-            Key::PageUp => Some(HexEditActions::MovePageUp),
-            Key::PageDown => Some(HexEditActions::MovePageDown),
-            Key::Home => Some(HexEditActions::MoveToFirstColumn),
-            Key::End => Some(HexEditActions::MoveToLastColumn),
-            Key::Backspace => Some(HexEditActions::DeleteWithMove),
-            Key::Delete => Some(HexEditActions::Delete),
-            Key::Tab => Some(HexEditActions::SwitchView),
-            Key::Insert => Some(HexEditActions::ToggleInsert),
-            Key::Char('\u{0}') => Some(HexEditActions::ToggleSelecion),
-            Key::Ctrl('x') => Some(HexEditActions::CutSelection),
-            Key::Ctrl('c') => Some(HexEditActions::CopySelection),
-            Key::Ctrl('v') => Some(HexEditActions::PasteSelection),
-            Key::Ctrl('/') => Some(HexEditActions::HelpView),
-            Key::Ctrl('l') => Some(HexEditActions::LogView),
-            Key::Ctrl('z') => Some(HexEditActions::Undo),
-            Key::Ctrl('g') => Some(HexEditActions::AskGoto),
-            Key::Ctrl('f') => Some(HexEditActions::AskFind),
-            Key::Ctrl('o') => Some(HexEditActions::AskOpen),
-            Key::Ctrl('s') => Some(HexEditActions::AskSave),
-            Key::Ctrl('\\') => Some(HexEditActions::StartMenu),
-            Key::Char(c) => Some(HexEditActions::Edit(c)),
+            KeyPress::Left => Some(HexEditActions::MoveLeft),
+            KeyPress::Right => Some(HexEditActions::MoveRight),
+            KeyPress::Up => Some(HexEditActions::MoveUp),
+            KeyPress::Down => Some(HexEditActions::MoveDown),
+            KeyPress::PageUp => Some(HexEditActions::MovePageUp),
+            KeyPress::PageDown => Some(HexEditActions::MovePageDown),
+            KeyPress::Home => Some(HexEditActions::MoveToFirstColumn),
+            KeyPress::End => Some(HexEditActions::MoveToLastColumn),
+            KeyPress::Backspace => Some(HexEditActions::DeleteWithMove),
+            KeyPress::Delete => Some(HexEditActions::Delete),
+            KeyPress::Tab => Some(HexEditActions::SwitchView),
+            KeyPress::Insert => Some(HexEditActions::ToggleInsert),
+            KeyPress::Shortcut(' ') => Some(HexEditActions::ToggleSelecion),
+            KeyPress::Shortcut('x') => Some(HexEditActions::CutSelection),
+            KeyPress::Shortcut('c') => Some(HexEditActions::CopySelection),
+            KeyPress::Shortcut('v') => Some(HexEditActions::PasteSelection),
+            KeyPress::Shortcut('/') => Some(HexEditActions::HelpView),
+            KeyPress::Shortcut('l') => Some(HexEditActions::LogView),
+            KeyPress::Shortcut('z') => Some(HexEditActions::Undo),
+            KeyPress::Shortcut('g') => Some(HexEditActions::AskGoto),
+            KeyPress::Shortcut('f') => Some(HexEditActions::AskFind),
+            KeyPress::Shortcut('o') => Some(HexEditActions::AskOpen),
+            KeyPress::Shortcut('s') => Some(HexEditActions::AskSave),
+            KeyPress::Shortcut('\\') => Some(HexEditActions::StartMenu),
+            KeyPress::Key(c) => Some(HexEditActions::Edit(c)),
 
             k @ _ => {
                 println!("Unknown key {:?}", k);
@@ -47,43 +46,43 @@ impl Input {
         }
     }
 
-    pub fn inputline_input(&self, key: Key) -> Option<BaseInputLineActions> {
+    pub fn inputline_input(&self, key: KeyPress) -> Option<BaseInputLineActions> {
         match key {
-            Key::Char(c) => Some(BaseInputLineActions::Edit(c)),
-            Key::Ctrl(c) => Some(BaseInputLineActions::Ctrl(c)),
-            Key::Left => Some(BaseInputLineActions::MoveLeft),
-            Key::Right => Some(BaseInputLineActions::MoveRight),
-            Key::Backspace => Some(BaseInputLineActions::DeleteWithMove),
-            Key::Enter => Some(BaseInputLineActions::Ok),
-            Key::Esc => Some(BaseInputLineActions::Cancel),
+            KeyPress::Key(c) => Some(BaseInputLineActions::Edit(c)),
+            KeyPress::Shortcut(c) => Some(BaseInputLineActions::Ctrl(c)),
+            KeyPress::Left => Some(BaseInputLineActions::MoveLeft),
+            KeyPress::Right => Some(BaseInputLineActions::MoveRight),
+            KeyPress::Backspace => Some(BaseInputLineActions::DeleteWithMove),
+            KeyPress::Enter => Some(BaseInputLineActions::Ok),
+            KeyPress::Esc => Some(BaseInputLineActions::Cancel),
             _ => None
         }
 
     }
 
-    pub fn overlay_input(&self, key: Key) -> Option<OverlayActions> {
+    pub fn overlay_input(&self, key: KeyPress) -> Option<OverlayActions> {
         match key {
-            Key::Esc => Some(OverlayActions::Cancel),
+            KeyPress::Esc => Some(OverlayActions::Cancel),
             _ => None
         }
     }
 
-    pub fn config_input(&self, key: Key) -> Option<ConfigScreenActions> {
+    pub fn config_input(&self, key: KeyPress) -> Option<ConfigScreenActions> {
         match key {
-            Key::Down => Some(ConfigScreenActions::Down),
-            Key::Up => Some(ConfigScreenActions::Up),
-            Key::Enter => Some(ConfigScreenActions::Select),
-            Key::Esc => Some(ConfigScreenActions::Cancel),
+            KeyPress::Down => Some(ConfigScreenActions::Down),
+            KeyPress::Up => Some(ConfigScreenActions::Up),
+            KeyPress::Enter => Some(ConfigScreenActions::Select),
+            KeyPress::Esc => Some(ConfigScreenActions::Cancel),
             _ => None
         }
     }
 
-    pub fn menu_input(&self, key: Key) -> Option<MenuActions> {
+    pub fn menu_input(&self, key: KeyPress) -> Option<MenuActions> {
         match key {
-            Key::Backspace => Some(MenuActions::Back),
-            Key::Esc => Some(MenuActions::Cancel),
-            Key::Char('?') => Some(MenuActions::ToggleHelp),
-            Key::Char(c) => Some(MenuActions::Key(c)),
+            KeyPress::Backspace => Some(MenuActions::Back),
+            KeyPress::Esc => Some(MenuActions::Cancel),
+            KeyPress::Key('?') => Some(MenuActions::ToggleHelp),
+            KeyPress::Key(c) => Some(MenuActions::Key(c)),
             _ => None
         }
     }

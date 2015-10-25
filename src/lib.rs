@@ -5,4 +5,5 @@ extern crate itertools;
 #[macro_use] extern crate rex_utils;
 
 pub mod config;
+pub mod frontend;
 pub mod ui;
