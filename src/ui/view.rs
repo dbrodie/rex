@@ -396,8 +396,8 @@ impl HexEdit {
     }
 
     fn edit_buffer(&mut self, act: EditOp, add_to_undo: bool) -> (isize, isize) {
-        let mut begin_region: isize;
-        let mut end_region: isize;
+        let begin_region: isize;
+        let end_region: isize;
 
         match act {
             EditOp::Insert(offset, buf) => {

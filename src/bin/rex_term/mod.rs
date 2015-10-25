@@ -84,7 +84,7 @@ impl Frontend for RustBoxFrontend {
                 RB_Event::KeyEvent(Some(key)) => return Event::KeyPressEvent(RustBoxFrontend::convert_key(key)),
                 RB_Event::ResizeEvent(w, h) => return Event::Resize(w as usize, h as usize),
                 e @ _ => {
-                    println!("Unhandled rustbox event");
+                    println!("Unhandled rustbox event: {:?}", e);
                     continue;
                 }
             }
