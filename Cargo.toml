@@ -16,10 +16,7 @@ env_logger = "0.3"
 gag = "0.1"
 toml = "0.1"
 docopt = "0.6"
-
-[dependencies.rustbox]
-git = "https://github.com/dbrodie/rustbox.git"
-rev = "c79605cc30caefaa5c6c14b29dbccc5e8713e314"
+rustbox = "0.7.2"
 
 [dependencies.rex_utils]
 path = "rex_utils"
