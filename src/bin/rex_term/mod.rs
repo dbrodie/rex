@@ -3,7 +3,7 @@ use rustbox::keyboard::Key;
 use rustbox::Event as RB_Event;
 use rustbox::Style as RB_Style;
 
-use super::{Frontend, Style, Event, KeyPress};
+use rex::frontend::{Frontend, Style, Event, KeyPress};
 
 pub struct RustBoxFrontend {
     rustbox: RustBox,

@@ -4,6 +4,8 @@ extern crate rustbox;
 extern crate rustc_serialize;
 extern crate rex;
 
+mod rex_term;
+
 use std::path::Path;
 use std::error::Error;
 use std::io;
@@ -14,9 +16,10 @@ use docopt::Docopt;
 use gag::Hold;
 
 use rex::frontend::{Frontend, Event, KeyPress};
-use rex::frontend::rustbox::RustBoxFrontend;
 use rex::ui::view::HexEdit;
 use rex::config::Config;
+
+use rex_term::RustBoxFrontend;
 
 static USAGE: &'static str = "
 Usage: rex [options] [-C CONF... FILE]
