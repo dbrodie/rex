@@ -1,6 +1,5 @@
 use std::default::Default;
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::cmp;
 
 use rex_utils;
@@ -24,12 +23,12 @@ signal_decl!{ConfigSelected(&'static str)}
 pub struct ConfigScreen {
     pub on_cancel: Canceled,
     pub on_selected: ConfigSelected,
-    config: Rc<RefCell<Config>>,
+    config: Rc<Config>,
     cursor_line: isize,
 }
 
 impl ConfigScreen {
-    pub fn with_config(config: Rc<RefCell<Config>>) -> ConfigScreen {
+    pub fn with_config(config: Rc<Config>) -> ConfigScreen {
         ConfigScreen {
             on_cancel: Default::default(),
             on_selected: Default::default(),
@@ -39,7 +38,7 @@ impl ConfigScreen {
     }
 
     fn select(&mut self) {
-        if let Some((name, _)) = self.config.borrow().values().nth(self.cursor_line as usize) {
+        if let Some((name, _)) = self.config.values().nth(self.cursor_line as usize) {
             self.on_selected.signal(name);
         }
     }
@@ -68,7 +67,7 @@ impl Widget for ConfigScreen {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default, &clear_line);
         }
 
-        for (i, (name, value)) in self.config.borrow().values().enumerate() {
+        for (i, (name, value)) in self.config.values().enumerate() {
             let style = if i != self.cursor_line as usize {
                 Style::Default
             } else {
