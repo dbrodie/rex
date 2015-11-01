@@ -21,29 +21,44 @@ pub enum BaseInputLineActions {
     Cancel
 }
 
-struct BaseInputLine {
-    prefix: String,
+pub trait InputLineBehavior {
+    fn get_prefix(&mut self) -> String;
+    fn do_enter(&mut self, data: &[u8]);
+    fn do_cancel(&mut self);
+    fn do_shortcut(&mut self, shortcut: char) {
+
+    }
+}
+
+pub struct InputLine<T:InputLineBehavior> {
+    behavior: T,
     data: Vec<u8>,
     input_pos: isize,
 }
 
-impl BaseInputLine {
-    fn new(prefix: String) -> BaseInputLine {
-        BaseInputLine {
-            prefix: prefix,
+impl<T:InputLineBehavior> InputLine<T> {
+    pub fn new(behavior: T) -> InputLine<T> {
+        InputLine {
+            behavior: behavior,
             data: vec![],
             input_pos: 0,
         }
     }
 }
 
-impl Widget for BaseInputLine {
+impl<T:InputLineBehavior> Widget for InputLine<T> {
     fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.inputline_input(key) { action } else {
             return false;
         };
 
         match action {
+            BaseInputLineActions::Ok => {
+                self.behavior.do_enter(&self.data)
+            }
+            BaseInputLineActions::Cancel => {
+                self.behavior.do_cancel()
+            }
             BaseInputLineActions::MoveLeft => {
                 if self.input_pos > 0 {
                     self.input_pos -= 1;
@@ -62,25 +77,28 @@ impl Widget for BaseInputLine {
                     // TODO: Make it printable rather than alphanumeric
                 }
             }
+            BaseInputLineActions::Ctrl(ch) => {
+                self.behavior.do_shortcut(ch)
+            }
             BaseInputLineActions::DeleteWithMove => {
                 if self.input_pos > 0 {
                     self.input_pos -= 1;
                     self.data.remove(self.input_pos as usize);
                 }
             }
-            _ => return false
         };
 
         return true;
     }
 
     fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
+        let prefix = self.behavior.get_prefix();
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
                  &rex_utils::string_with_repeat(' ', area.width as usize));
         rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
-                 &format!("{}{}", self.prefix, str::from_utf8(&self.data).unwrap()));
+                 &format!("{}{}", prefix, str::from_utf8(&self.data).unwrap()));
         if has_focus {
-            rb.set_cursor(self.prefix.len() as isize + self.input_pos, (area.top as isize));
+            rb.set_cursor(prefix.len() as isize + self.input_pos, (area.top as isize));
         }
     }
 }
@@ -93,17 +111,15 @@ enum RadixType {
 
 signal_decl!{GotoEvent(isize)}
 
-pub struct GotoInputLine {
-    base: BaseInputLine,
+pub struct GotoInputLineBehavior {
     radix: RadixType,
     pub on_done: GotoEvent,
     pub on_cancel: Canceled,
 }
 
-impl GotoInputLine {
-    pub fn new() -> GotoInputLine {
-        GotoInputLine {
-            base: BaseInputLine::new("Goto (Dec):".to_string()),
+impl GotoInputLineBehavior {
+    pub fn new() -> GotoInputLineBehavior {
+        GotoInputLineBehavior {
             radix: RadixType::DecRadix,
             on_done: Default::default(),
             on_cancel: Default::default(),
@@ -112,21 +128,16 @@ impl GotoInputLine {
 
     fn set_radix(&mut self, r: RadixType) {
         self.radix = r;
-        self.base.prefix = match self.radix {
-            RadixType::DecRadix => "Goto (Dec):".to_string(),
-            RadixType::HexRadix => "Goto (Hex):".to_string(),
-            RadixType::OctRadix => "Goto (Oct):".to_string(),
-        }
     }
 
-    fn do_goto(&mut self) {
+    fn do_goto(&mut self, data: &[u8]) {
         let radix = match self.radix {
             RadixType::DecRadix => 10,
             RadixType::HexRadix => 16,
             RadixType::OctRadix => 8,
         };
 
-        let pos: Option<isize> = match str::from_utf8(&self.base.data) {
+        let pos: Option<isize> = match str::from_utf8(&data) {
             Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
             Err(_) => None
         };
@@ -143,45 +154,36 @@ impl GotoInputLine {
     }
 }
 
-impl Widget for GotoInputLine {
-    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
-        if self.base.input(input, key) { return true }
-
-        let action = if let Some(action) = input.inputline_input(key) { action } else {
-            return false;
-        };
-
-        match action {
-            BaseInputLineActions::Ok => {
-                self.do_goto();
-                // self.done_state = Some(true);
-                true
-            }
-            BaseInputLineActions::Cancel => {
-                self.on_cancel.signal(None);
-                // self.done_state = Some(false);
-                true
-            }
-
-            BaseInputLineActions::Ctrl('d') => {
-                self.set_radix(RadixType::DecRadix);
-                true
-            }
-            BaseInputLineActions::Ctrl('h') => {
-                self.set_radix(RadixType::HexRadix);
-                true
-            }
-            BaseInputLineActions::Ctrl('o') => {
-                self.set_radix(RadixType::OctRadix);
-                true
-            }
-
-            _ => false
+impl InputLineBehavior for GotoInputLineBehavior {
+    fn get_prefix(&mut self) -> String {
+        match self.radix {
+            RadixType::DecRadix => "Goto (Dec):".to_string(),
+            RadixType::HexRadix => "Goto (Hex):".to_string(),
+            RadixType::OctRadix => "Goto (Oct):".to_string(),
         }
     }
 
-    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
+    fn do_enter(&mut self, data: &[u8]) {
+        self.do_goto(data);
+    }
+
+    fn do_cancel(&mut self) {
+        self.on_cancel.signal(None);
+    }
+
+    fn do_shortcut(&mut self, shortcut: char) {
+        match shortcut {
+            'd' => {
+                self.set_radix(RadixType::DecRadix);
+            }
+            'h' => {
+                self.set_radix(RadixType::HexRadix);
+            }
+            'o' => {
+                self.set_radix(RadixType::OctRadix);
+            }
+            _ => ()
+        }
     }
 }
 
@@ -194,7 +196,6 @@ enum DataType {
 signal_decl!{FindEvent(Vec<u8>)}
 
 pub struct FindInputLine {
-    base: BaseInputLine,
     data_type: DataType,
     pub on_find: FindEvent,
     pub on_cancel: Canceled,
@@ -203,7 +204,6 @@ pub struct FindInputLine {
 impl FindInputLine {
     pub fn new() -> FindInputLine {
         FindInputLine {
-            base: BaseInputLine::new("Find(Ascii): ".to_string()),
             data_type: DataType::AsciiStr,
             on_find: Default::default(),
             on_cancel: Default::default(),
@@ -212,19 +212,14 @@ impl FindInputLine {
 
     fn set_search_data_type(&mut self, dt: DataType) {
         self.data_type = dt;
-        self.base.prefix = match self.data_type {
-            DataType::AsciiStr => "Find(Ascii): ".to_string(),
-            DataType::UnicodeStr => "Find(Uni): ".to_string(),
-            DataType::HexStr => "Find(Hex): ".to_string(),
-        }
     }
 
-    fn do_find(&mut self) {
-        let ll = str::from_utf8(&self.base.data).unwrap().from_hex();
+    fn do_find(&mut self, data: &[u8]) {
+        let ll = str::from_utf8(data).unwrap().from_hex();
 
         let needle: Vec<u8> = match self.data_type {
-            DataType::AsciiStr => self.base.data.clone().into(),
-            DataType::UnicodeStr => self.base.data.clone().into(),
+            DataType::AsciiStr => data.clone().into(),
+            DataType::UnicodeStr => data.clone().into(),
             DataType::HexStr => {
                 match ll {
                     Ok(n) => n,
@@ -240,132 +235,99 @@ impl FindInputLine {
     }
 }
 
-impl Widget for FindInputLine {
-    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
-        if self.base.input(input, key) { return true }
-
-        let action = if let Some(action) = input.inputline_input(key) { action } else {
-            return false;
-        };
-
-        match action {
-            BaseInputLineActions::Ok => {
-                self.do_find();
-                // self.done_state = Some(true);
-                true
-            }
-            BaseInputLineActions::Cancel => {
-                // self.done_state = Some(false);
-                self.on_cancel.signal(None);
-                true
-            }
-
-            BaseInputLineActions::Ctrl('a') => {
-                self.set_search_data_type(DataType::AsciiStr);
-                true
-            }
-            BaseInputLineActions::Ctrl('u') => {
-                self.set_search_data_type(DataType::UnicodeStr);
-                true
-            }
-            BaseInputLineActions::Ctrl('h') => {
-                self.set_search_data_type(DataType::HexStr);
-                true
-            }
-
-            _ => false
+impl InputLineBehavior for FindInputLine {
+    fn get_prefix(&mut self) -> String {
+        match self.data_type {
+            DataType::AsciiStr => "Find(Ascii): ".to_string(),
+            DataType::UnicodeStr => "Find(Uni): ".to_string(),
+            DataType::HexStr => "Find(Hex): ".to_string(),
         }
     }
 
-    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
+    fn do_enter(&mut self, data: &[u8]) {
+        self.do_find(data);
+    }
+
+    fn do_cancel(&mut self) {
+        self.on_cancel.signal(None);
+    }
+
+    fn do_shortcut(&mut self, shortcut: char) {
+        match shortcut {
+            'a' => {
+                self.set_search_data_type(DataType::AsciiStr);
+            }
+            'u' => {
+                self.set_search_data_type(DataType::UnicodeStr);
+            }
+            'h' => {
+                self.set_search_data_type(DataType::HexStr);
+            }
+            _ => ()
+        }
     }
 }
 
 signal_decl!{PathEvent(PathBuf)}
 
 pub struct PathInputLine {
-    base: BaseInputLine,
     pub on_done: PathEvent,
     pub on_cancel: Canceled,
+    prefix: String,
 }
 
 impl PathInputLine {
     pub fn new(prefix: String) -> PathInputLine {
         PathInputLine {
-            base: BaseInputLine::new(prefix),
+            prefix: prefix,
             on_done: Default::default(),
             on_cancel: Default::default()
         }
     }
 }
 
-impl Widget for PathInputLine {
-    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
-        if self.base.input(input, key) { return true }
-
-        let action = if let Some(action) = input.inputline_input(key) { action } else {
-            return false;
-        };
-
-        match action {
-            BaseInputLineActions::Ok => {
-                self.on_done.signal(PathBuf::from(str::from_utf8(&self.base.data).unwrap()));
-                true
-            }
-            BaseInputLineActions::Cancel => {
-                self.on_cancel.signal(None);
-                true
-            }
-            _ => false
-        }
+impl InputLineBehavior for PathInputLine {
+    fn get_prefix(&mut self) -> String {
+        self.prefix.clone()
     }
 
-    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
+    fn do_enter(&mut self, data: &[u8]) {
+        self.on_done.signal(PathBuf::from(str::from_utf8(data).unwrap()));
+    }
+
+    fn do_cancel(&mut self) {
+        self.on_cancel.signal(None);
     }
 }
 
 signal_decl!{ConfigSetEvent(String)}
 
 pub struct ConfigSetLine {
-    base: BaseInputLine,
     pub on_done: ConfigSetEvent,
     pub on_cancel: Canceled,
+    prefix: String,
 }
 
 impl ConfigSetLine {
     pub fn new(prefix: String) -> ConfigSetLine {
         ConfigSetLine {
-            base: BaseInputLine::new(prefix),
+            prefix: prefix,
             on_done: Default::default(),
-            on_cancel: Default::default()
+            on_cancel: Default::default(),
         }
     }
 }
 
-impl Widget for ConfigSetLine {
-    fn input(&mut self, input: &Input, key: KeyPress) -> bool {
-        if self.base.input(input, key) { return true }
-
-        let action = if let Some(action) = input.inputline_input(key) { action } else {
-            return false;
-        };
-
-        match action {
-            BaseInputLineActions::Ok => {
-                self.on_done.signal(str::from_utf8(&self.base.data).unwrap().to_owned());
-                true
-            }
-            BaseInputLineActions::Cancel => {
-                self.on_cancel.signal(None);
-                true
-            }
-            _ => false
-        }
+impl InputLineBehavior for ConfigSetLine {
+    fn get_prefix(&mut self) -> String {
+        self.prefix.clone()
     }
 
-    fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
-        self.base.draw(rb, area, has_focus)
+    fn do_enter(&mut self, data: &[u8]) {
+        self.on_done.signal(str::from_utf8(&data).unwrap().to_owned());
+    }
+
+    fn do_cancel(&mut self) {
+        self.on_cancel.signal(None);
     }
 }

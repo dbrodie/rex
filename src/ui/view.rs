@@ -21,7 +21,7 @@ use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::{Filesystem, DefaultFilesystem};
 use super::input::Input;
 use super::widget::Widget;
-use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
+use super::inputline::{InputLine, GotoInputLineBehavior, FindInputLine, PathInputLine, ConfigSetLine};
 use super::overlay::OverlayText;
 use super::config::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
@@ -796,7 +796,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             obj.child_widget = None;
             obj.set_config(conf_name, &config_value);
         }));
-        self.child_widget = Some((Box::new(config_set), INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(config_set)), INPUTLINE_LAYOUT));
     }
 
     /// Setting the config is only "allowed" from the main view, and all child widgets should have
@@ -845,7 +845,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn start_goto(&mut self) {
-        let mut gt = GotoInputLine::new();
+        let mut gt = GotoInputLineBehavior::new();
         let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.child_widget = None;
@@ -861,7 +861,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(gt) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(gt)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_find(&mut self) {
@@ -881,7 +881,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(find_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(find_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_save(&mut self) {
@@ -901,7 +901,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(path_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_open(&mut self) {
@@ -921,7 +921,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(path_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn process_msgs(&mut self) {
