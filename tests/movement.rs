@@ -2,6 +2,8 @@ extern crate rex;
 
 mod util;
 
+use std::iter;
+
 use rex::frontend::{Event, KeyPress};
 
 #[test]
@@ -93,5 +95,32 @@ fn test_goto() {
     frontend.run_str(pedit, "50");
     frontend.run_keys(pedit, vec![KeyPress::Enter]);
     assert_eq!(pedit.get_position(), 50);
+}
 
+#[test]
+/// Test the find behavior
+fn test_find() {
+    let mut vec: Vec<u8> = iter::repeat(0).take(100).collect();
+    vec.append(&mut vec![0x78, 0x78, 0x78, 0x78]);
+    vec.append(&mut iter::repeat(0).take(100).collect());
+    let (mut edit, mut frontend) = util::simple_init_with_vec(vec);
+    let pedit = &mut edit;
+
+    // Try Ascii
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('f')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('a')]);
+    frontend.run_str(pedit, "xxxx");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 100);
+
+    // Reset position
+    frontend.run_keys(pedit, vec![KeyPress::PageUp, KeyPress::PageUp]);
+
+    // Try Hex
+    // Try Ascii
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('f')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('h')]);
+    frontend.run_str(pedit, "78787878");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 100);
 }
