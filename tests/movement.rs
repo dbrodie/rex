@@ -55,3 +55,43 @@ fn test_bottom_cutoff() {
     frontend.run_keys(&mut edit, vec![KeyPress::PageUp, KeyPress::Left, KeyPress::PageDown, KeyPress::PageDown]);
     assert_eq!(edit.get_position(), size);
 }
+
+#[test]
+/// Test the goto behavior
+fn test_goto() {
+    let size: isize = 0x1000;
+    let (mut edit, mut frontend) = util::simple_init(size as usize);
+    let pedit = &mut edit;
+
+    assert_eq!(pedit.get_position(), 0);
+
+    // Default is decimal
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('g')]);
+    frontend.run_str(pedit, "100");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 100);
+
+    // Then comes hex
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('g')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('h')]);
+    frontend.run_str(pedit, "100");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 0x100);
+
+    // Then comes octal
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('g')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('o')]);
+    frontend.run_str(pedit, "100");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 0o100);
+
+    // And now just a big of random til we come back to decimal
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('g')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('o')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('h')]);
+    frontend.run_keys(pedit, vec![KeyPress::Shortcut('d')]);
+    frontend.run_str(pedit, "50");
+    frontend.run_keys(pedit, vec![KeyPress::Enter]);
+    assert_eq!(pedit.get_position(), 50);
+
+}
