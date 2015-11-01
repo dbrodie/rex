@@ -845,7 +845,7 @@ impl HexEdit {
         let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.child_widget = None;
-            obj.goto(pos*2);
+            obj.goto(pos);
         }));
 
         gt.on_cancel.connect(signal!(sr with |obj, opt_msg| {
