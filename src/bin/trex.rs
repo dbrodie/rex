@@ -72,7 +72,7 @@ fn main() {
         );
     }
 
-    let mut edit = HexEdit::new(config);
+    let mut edit: HexEdit = HexEdit::new(config);
 
     if let Some(ref filename) = args.arg_FILE {
         edit.open(&Path::new(filename));

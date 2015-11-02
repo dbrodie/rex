@@ -1,15 +1,14 @@
 use std::cmp;
-use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::iter;
-use std::error::Error;
 use std::ascii::AsciiExt;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::rc::Rc;
+use std::marker::PhantomData;
 
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
@@ -19,6 +18,7 @@ use rex_utils::signals::SignalReceiver;
 use super::super::config::Config;
 
 use super::super::frontend::{Frontend, Style, KeyPress};
+use super::super::filesystem::{FileSystem, DefaultFileSystem};
 use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
@@ -94,7 +94,7 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
     ]),
 ];
 
-pub struct HexEdit {
+pub struct HexEdit<FS = DefaultFileSystem> {
     buffer: SplitVec,
     config: Rc<Config>,
     rect: Rect<isize>,
@@ -112,11 +112,12 @@ pub struct HexEdit {
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
-    signal_receiver: Rc<SignalReceiver<HexEdit>>,
+    signal_receiver: Rc<SignalReceiver<HexEdit<FS>>>,
+    _fs: PhantomData<FS>,
 }
 
-impl HexEdit {
-    pub fn new(config: Config) -> HexEdit {
+impl<FS: FileSystem+'static> HexEdit<FS> {
+    pub fn new(config: Config) -> HexEdit<FS> {
         HexEdit {
             buffer: SplitVec::new(),
             config: Rc::new(config),
@@ -135,6 +136,7 @@ impl HexEdit {
             clipboard: None,
             input: Input::new(),
             signal_receiver: Rc::new(SignalReceiver::new()),
+            _fs: PhantomData,
         }
     }
 
@@ -368,8 +370,8 @@ impl HexEdit {
 
     pub fn open(&mut self, path: &Path) {
         let mut v = vec![];
-        if let Err(e) = File::open(path).and_then(|mut f| f.read_to_end(&mut v)) {
-            self.status(format!("ERROR: {}", e.description()));
+        if let Err(e) = FS::open(path).and_then(|mut f| f.read_to_end(&mut v)) {
+            self.status(format!("ERROR: {}", e));
             return;
         }
         self.buffer = SplitVec::from_vec(v);
@@ -378,17 +380,19 @@ impl HexEdit {
     }
 
     pub fn save(&mut self, path: &Path) {
-        let result = File::create(path)
+        let result = FS::save(path)
             .and_then(|mut f| self.buffer.iter_slices()
                       .fold(Ok(()), |res, val| res
-                            .and_then(|_| f.write_all(val))));
+                            .and_then(|_| f.write_all(val))
+                        )
+                    );
 
         match result {
             Ok(_) => {
                 self.cur_path = Some(PathBuf::from(path));
             }
             Err(e) => {
-                self.status(format!("ERROR: {}", e.description()));
+                self.status(format!("ERROR: {}", e));
             }
         }
     }
