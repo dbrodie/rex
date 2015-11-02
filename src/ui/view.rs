@@ -15,6 +15,7 @@ use rex_utils;
 use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
+use rex_utils::signals::SignalReceiver;
 use super::super::config::Config;
 
 use super::super::frontend::{Frontend, Style, KeyPress};
@@ -93,8 +94,6 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
     ]),
 ];
 
-signalreceiver_decl!{HexEditSignalReceiver(HexEdit)}
-
 pub struct HexEdit {
     buffer: SplitVec,
     config: Rc<Config>,
@@ -113,7 +112,7 @@ pub struct HexEdit {
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
 
-    signal_receiver: Rc<HexEditSignalReceiver>,
+    signal_receiver: Rc<SignalReceiver<HexEdit>>,
 }
 
 impl HexEdit {
@@ -135,7 +134,7 @@ impl HexEdit {
             cur_path: None,
             clipboard: None,
             input: Input::new(),
-            signal_receiver: Rc::new(HexEditSignalReceiver::new()),
+            signal_receiver: Rc::new(SignalReceiver::new()),
         }
     }
 

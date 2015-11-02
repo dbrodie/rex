@@ -6,8 +6,8 @@
 //!
 //! # Usage
 //!
-//! This module is all macros, to use it you should declare the create in your main.rs or lib.rs
-//! as:
+//! This module is almost all macros, to use it you should declare the create in your main.rs or
+//! lib.rs as:
 //!
 //! ```ignore
 //! #[macro_use] extern crate rex_utils;
@@ -47,16 +47,16 @@
 //!
 //! # Receiving and dispatching signaled signals
 //!
-//! The second part of the signal API is declaring the signal receiver. The signal receiver can
+//! The second part of the signal API is the ```SignalReceiver```. The signal receiver can
 //! be thought of as the object that the triggered signal is sent to. This helps decouple the
 //! closure that is connected to the signal from needing to have a reference to the object the
 //! closure will use. This also allows the closure to have a mutable reference and sidestep many
 //! lifetime issues with closures used in signals and moves the complexity to the implementation.
 //!
-//! A signal receiver is declared with the ```signalreceiver_decl!``` macro, that accepts the type
-//! of the object that the signal will be "posted" to. The created type has two methods. The first,
-//! ```run(&self, &mut ObjType)``` to dispatch any incoming signals. Additionally a
-//! ```new()``` method to create a type (though the Default trait can also be used).
+//! A ```SignalReceiver``` is generic over the type of the object that will be passed to the signal
+//! closure. A SignalReceiver can only pass a mutable reference to the object that is receiveing the
+//! signal to the closures. It is usually useful to wrap a ```SignalReceiver``` in an ```Rc``` to
+//! allow it to be part of the object that it is dispatching the signal to.
 //! For example, here is how we would create a signal receiver for our App struct:
 //!
 //! ```ignore
@@ -64,16 +64,13 @@
 //!     bytes_changed: i32
 //! }
 //!
-//! signalreceiver_decl!{AppSignalReceiver(App)}
-//!
-//!
 //! // Say we have an instance of our App
 //! let app = App { bytes_changed: 0 };
 //!
 //! // Now let's create an instace of the signal receiver
-//! let sr = AppSignalReceiver::new();
+//! let sr: SignalReceiver<App> = SignalReceiver::new();
 //! // Additionally, the Default trait can be used
-//! // let sr: AppSignalReceiver = Default::default();
+//! // let sr: SignalReceiver<App> = Default::default();
 //!
 //! // We will ignore for now how signals are connected and posted.
 //! // Once a signal is posted, to run the closure that was connected to our object we will use
@@ -117,10 +114,6 @@
 //!     bytes_changed: i32
 //! }
 //!
-//! // The signal receiver for our fake app
-//! signalreceiver_decl!{AppSignalReceiver(App)}
-//!
-//!
 //! // Let's create all of our objects
 //! let tb = TextBox {
 //!     on_text_changed: TextChangedEvent::new(),
@@ -128,7 +121,7 @@
 //!
 //! let app = App { bytes_changed: 0 };
 //!
-//! let sr = AppSignalReceiver::new();
+//! let sr: SignalReceiver<App> = SignalReceiver::new();
 //!
 //!
 //! // Now let's connect a closure to the signal
@@ -218,33 +211,28 @@ macro_rules! signal {
     })
 }
 
-/// A macro used for creating a signal receiver.
-///
-/// See the documentation in the ```signals``` module for more information.
-#[macro_export]
-macro_rules! signalreceiver_decl {
-    ( $name: ident($t:ty) ) => {
-        struct $name {
-            receiver: ::std::sync::mpsc::Receiver<Box<FnMut(&mut $t)>>,
-            sender: ::std::sync::mpsc::Sender<Box<FnMut(&mut $t)>>,
+/// Receives closures from signals and dispatches them over a target object
+pub struct SignalReceiver<T> {
+    pub receiver: ::std::sync::mpsc::Receiver<Box<FnMut(&mut T)>>,
+    pub sender: ::std::sync::mpsc::Sender<Box<FnMut(&mut T)>>,
+}
+
+impl<T> SignalReceiver<T> {
+    /// Creates a new SignalReceiver
+    pub fn new() -> SignalReceiver<T> {
+        let (sender, receiver) = ::std::sync::mpsc::channel();
+        SignalReceiver {
+            sender: sender,
+            receiver: receiver,
         }
+    }
 
-        impl $name {
-            fn new() -> $name {
-                let (sender, receiver) = ::std::sync::mpsc::channel();
-                $name {
-                    sender: sender,
-                    receiver: receiver,
-                }
-            }
-
-            fn run(&self, ss: &mut $t) {
-                loop {
-                    match self.receiver.try_recv() {
-                        Ok(mut handler) => handler(ss),
-                        Err(_) => break,
-                    }
-                }
+    /// Dispatches all closures that are waiting over the object
+    pub fn run(&self, obj: &mut T) {
+        loop {
+            match self.receiver.try_recv() {
+                Ok(mut handler) => handler(obj),
+                Err(_) => break,
             }
         }
     }
