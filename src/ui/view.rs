@@ -950,4 +950,11 @@ impl<FS: FileSystem+'static> HexEdit<FS> {
     pub fn get_position(&mut self) -> isize {
         self.cursor_nibble_pos / 2
     }
+
+    pub fn get_file_path(&mut self) -> Option<&Path> {
+        match self.cur_path {
+            Some(ref p) => Some(p.as_path()),
+            None => None,
+        }
+    }
 }
