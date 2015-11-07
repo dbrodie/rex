@@ -35,10 +35,11 @@ fn test_basic_open() {
     let mut v = vec![0; 1000];
     let len = v.len();
     v[len-1] = 0xAA;
-    MockFileSystem::put("test_basic_open", v);
 
     let (mut edit, mut frontend) = util::simple_init_empty();
     let pedit = &mut edit;
+
+    MockFileSystem::put("test_basic_open", v);
 
     // Open file with the marker
     frontend.run_keys(pedit, vec![KeyPress::Shortcut('o')]);

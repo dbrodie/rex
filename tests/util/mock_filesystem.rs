@@ -87,6 +87,10 @@ impl FileSystem for MockFileSystem {
 }
 
 impl MockFileSystem {
+    pub fn reset() {
+        FILES.lock().unwrap().clear();
+    }
+
     pub fn get_inner<'a, P: AsRef<Path>>(path: P) -> Vec<u8> {
         // This function is very ugly, in general we would like to "unwrap" the file from the
         // mock filesystem. Sadly, there doesn't seem to be a better way.
