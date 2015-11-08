@@ -1,7 +1,7 @@
 // use std::slice;
 use std::path::{Path, PathBuf};
 use std::io;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::collections::hash_map::{HashMap, Entry};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::cmp;
@@ -11,54 +11,33 @@ use rex::filesystem::FileSystem;
 use super::bytes;
 
 lazy_static! {
-    pub static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>> = Mutex::new(HashMap::new());
+    pub static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Cursor<Vec<u8>>>>>> = Mutex::new(HashMap::new());
 }
 
-pub struct MockFile {
-    pub locked_vec: Arc<Mutex<Vec<u8>>>,
-    pub pos: u64,
-}
+pub struct MockFile(Arc<Mutex<Cursor<Vec<u8>>>>);
 
 impl MockFile {
-    fn new(vec: Arc<Mutex<Vec<u8>>>) -> MockFile {
-        MockFile {
-            locked_vec: vec,
-            pos: 0,
-        }
+    fn new(vec: Arc<Mutex<Cursor<Vec<u8>>>>) -> MockFile {
+        MockFile(vec)
     }
 }
 
 impl Read for MockFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let vec = self.locked_vec.lock().unwrap();
-        let len = cmp::min(vec.len() - self.pos as usize, buf.len());
-        let src_slice = &vec[self.pos as usize..(self.pos as usize + len)];
-        {
-            let mut dest_slice = &mut buf[..len];
-
-
-            assert_eq!(src_slice.len(), dest_slice.len());
-
-            bytes::copy_memory(src_slice, dest_slice);
-        }
-        self.pos += len as u64;
-
-        Ok(len)
+        let mut vec = self.0.lock().unwrap();
+        vec.read(buf)
     }
 }
 
 impl Write for MockFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut vec = self.locked_vec.lock().unwrap();
-
-        // Since we do not support seek, this is pretty simple
-        vec.extend(buf.iter());
-
-        Ok(buf.len())
+        let mut vec = self.0.lock().unwrap();
+        vec.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+        let mut vec = self.0.lock().unwrap();
+        vec.flush()
     }
 }
 
@@ -76,7 +55,7 @@ impl FileSystem for MockFileSystem {
     }
 
     fn save<P: AsRef<Path>>(path: P) -> io::Result<Self::FSWrite> {
-        let file = Arc::new(Mutex::new(Vec::new()));
+        let file = Arc::new(Mutex::new(Cursor::new(Vec::new())));
         if let Entry::Vacant(entry) = FILES.lock().unwrap().entry(path.as_ref().into()) {
             entry.insert(file.clone());
             Ok(MockFile::new(file))
@@ -98,10 +77,10 @@ impl MockFileSystem {
         let a = Arc::try_unwrap(f).unwrap();
         let m = a.lock().unwrap();
         let v = m.clone();
-        v
+        v.into_inner()
     }
 
     pub fn put<'a, P: AsRef<Path>>(path: P, v: Vec<u8>) {
-        FILES.lock().unwrap().insert(path.as_ref().into(), Arc::new(Mutex::new(v)));
+        FILES.lock().unwrap().insert(path.as_ref().into(), Arc::new(Mutex::new(Cursor::new(v))));
     }
 }
