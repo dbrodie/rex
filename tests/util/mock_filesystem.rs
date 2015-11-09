@@ -6,7 +6,7 @@ use std::collections::hash_map::{HashMap, Entry};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::cmp;
 
-use rex::filesystem::FileSystem;
+use rex::filesystem::Filesystem;
 
 use super::bytes;
 
@@ -41,10 +41,10 @@ impl Write for MockFile {
     }
 }
 
-pub struct MockFileSystem;
+pub struct MockFilesystem;
 
 
-impl FileSystem for MockFileSystem {
+impl Filesystem for MockFilesystem {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
@@ -65,7 +65,7 @@ impl FileSystem for MockFileSystem {
     }
 }
 
-impl MockFileSystem {
+impl MockFilesystem {
     pub fn reset() {
         FILES.lock().unwrap().clear();
     }

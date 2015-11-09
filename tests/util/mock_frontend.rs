@@ -1,4 +1,4 @@
-use rex::filesystem::FileSystem;
+use rex::filesystem::Filesystem;
 use rex::frontend::{Frontend, Event, Style, KeyPress};
 use rex::ui::view::HexEdit;
 
@@ -15,14 +15,14 @@ impl MockFrontend {
         }
     }
 
-    pub fn run_str<FS: FileSystem+'static>(&mut self, edit: &mut HexEdit<FS>, s: &str) {
+    pub fn run_str<FS: Filesystem+'static>(&mut self, edit: &mut HexEdit<FS>, s: &str) {
         for c in s.chars() {
             edit.input(KeyPress::Key(c));
             edit.draw(self);
         }
     }
 
-    pub fn run_keys<I, FS: FileSystem+'static>(&mut self, edit: &mut HexEdit<FS>, keys: I) where
+    pub fn run_keys<I, FS: Filesystem+'static>(&mut self, edit: &mut HexEdit<FS>, keys: I) where
             I: IntoIterator<Item=KeyPress> {
         for key in keys {
             edit.input(key);
@@ -30,7 +30,7 @@ impl MockFrontend {
         }
     }
 
-    pub fn run_events<I, FS: FileSystem+'static>(&mut self, edit: &mut HexEdit<FS>, events: I) where
+    pub fn run_events<I, FS: Filesystem+'static>(&mut self, edit: &mut HexEdit<FS>, events: I) where
             I: IntoIterator<Item=Event> {
         for event in events {
             match event {

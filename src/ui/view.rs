@@ -18,7 +18,7 @@ use rex_utils::signals::SignalReceiver;
 use super::super::config::Config;
 
 use super::super::frontend::{Frontend, Style, KeyPress};
-use super::super::filesystem::{FileSystem, DefaultFileSystem};
+use super::super::filesystem::{Filesystem, DefaultFilesystem};
 use super::input::Input;
 use super::widget::Widget;
 use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
@@ -94,7 +94,7 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
     ]),
 ];
 
-pub struct HexEdit<FS = DefaultFileSystem> {
+pub struct HexEdit<FS = DefaultFilesystem> {
     buffer: SplitVec,
     config: Rc<Config>,
     rect: Rect<isize>,
@@ -116,7 +116,7 @@ pub struct HexEdit<FS = DefaultFileSystem> {
     _fs: PhantomData<FS>,
 }
 
-impl<FS: FileSystem+'static> HexEdit<FS> {
+impl<FS: Filesystem+'static> HexEdit<FS> {
     pub fn new(config: Config) -> HexEdit<FS> {
         HexEdit {
             buffer: SplitVec::new(),
