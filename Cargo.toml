@@ -20,3 +20,6 @@ rustbox = "0.7.2"
 
 [dependencies.rex_utils]
 path = "rex_utils"
+
+[dev-dependencies]
+lazy_static = "0.1"
