@@ -22,7 +22,13 @@ pub enum BaseInputLineActions {
 }
 
 pub trait InputLineBehavior {
-    fn get_prefix(&mut self) -> &str;
+    fn get_prefix(&self) -> &str;
+    fn get_status(&self) -> Result<&str, &str> {
+        Ok("")
+    }
+    fn do_update(&mut self, data: &[u8]) {
+
+    }
     fn do_enter(&mut self, data: &[u8]);
     fn do_cancel(&mut self);
     fn do_shortcut(&mut self, shortcut: char) {
@@ -84,19 +90,36 @@ impl<T:InputLineBehavior> Widget for InputLine<T> {
                 if self.input_pos > 0 {
                     self.input_pos -= 1;
                     self.data.remove(self.input_pos as usize);
+                    self.behavior.do_update(&self.data);
                 }
             }
         };
+
+        self.behavior.do_update(&self.data);
 
         return true;
     }
 
     fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, has_focus: bool) {
         let prefix = self.behavior.get_prefix();
-        rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
+
+        let (style, status_msg) = match self.behavior.get_status() {
+            Ok(sm) => (Style::InputLine, sm),
+            Err(sm) => (Style::InputLineError, sm),
+        };
+
+        let (x_pos, start_index) = if area.width >= status_msg.len() as isize {
+            (area.width - status_msg.len() as isize, 0)
+        } else {
+            (0, area.width - status_msg.len() as isize)
+        };
+
+        rb.print_style(area.left as usize, area.top as usize, style,
                  &rex_utils::string_with_repeat(' ', area.width as usize));
-        rb.print_style(area.left as usize, area.top as usize, Style::InputLine,
-                 &format!("{}{}", prefix, str::from_utf8(&self.data).unwrap()));
+        rb.print_style(x_pos as usize, area.top as usize, style,
+              &status_msg[start_index as usize..]);
+        rb.print_style(area.left as usize, area.top as usize, style,
+                 &format!("{}{} ", prefix, str::from_utf8(&self.data).unwrap()));
         if has_focus {
             rb.set_cursor(prefix.len() as isize + self.input_pos, (area.top as isize));
         }
@@ -113,6 +136,7 @@ signal_decl!{GotoEvent(isize)}
 
 pub struct GotoInputLineBehavior {
     radix: RadixType,
+    is_valid: bool,
     pub on_done: GotoEvent,
     pub on_cancel: Canceled,
 }
@@ -121,6 +145,7 @@ impl GotoInputLineBehavior {
     pub fn new() -> GotoInputLineBehavior {
         GotoInputLineBehavior {
             radix: RadixType::DecRadix,
+            is_valid: true,
             on_done: Default::default(),
             on_cancel: Default::default(),
         }
@@ -130,19 +155,21 @@ impl GotoInputLineBehavior {
         self.radix = r;
     }
 
-    fn do_goto(&mut self, data: &[u8]) {
+    fn get_pos(&mut self, data: &[u8]) -> Option<isize> {
         let radix = match self.radix {
             RadixType::DecRadix => 10,
             RadixType::HexRadix => 16,
             RadixType::OctRadix => 8,
         };
 
-        let pos: Option<isize> = match str::from_utf8(&data) {
+        match str::from_utf8(&data) {
             Ok(gs) => isize::from_str_radix(&gs, radix).ok(),
             Err(_) => None
-        };
+        }
+    }
 
-        match pos {
+    fn do_goto(&mut self, data: &[u8]) {
+        match self.get_pos(data) {
             Some(pos) => {
                 self.on_done.signal(pos)
             }
@@ -150,12 +177,11 @@ impl GotoInputLineBehavior {
                 self.on_cancel.signal(Some(format!("Bad position!")));
             }
         };
-
     }
 }
 
 impl InputLineBehavior for GotoInputLineBehavior {
-    fn get_prefix(&mut self) -> &str {
+    fn get_prefix(&self) -> &str {
         match self.radix {
             RadixType::DecRadix => "Goto (Dec):",
             RadixType::HexRadix => "Goto (Hex):",
@@ -163,8 +189,22 @@ impl InputLineBehavior for GotoInputLineBehavior {
         }
     }
 
+    fn get_status(&self) -> Result<&str, &str> {
+        if self.is_valid {
+            Ok("")
+        } else {
+            Err("Invalid position")
+        }
+    }
+
+    fn do_update(&mut self, data: &[u8]) {
+        self.is_valid = self.get_pos(data).is_some();
+    }
+
     fn do_enter(&mut self, data: &[u8]) {
-        self.do_goto(data);
+        if self.is_valid {
+            self.do_goto(data);
+        }
     }
 
     fn do_cancel(&mut self) {
@@ -236,7 +276,7 @@ impl FindInputLine {
 }
 
 impl InputLineBehavior for FindInputLine {
-    fn get_prefix(&mut self) -> &str {
+    fn get_prefix(&self) -> &str {
         match self.data_type {
             DataType::AsciiStr => "Find(Ascii): ",
             DataType::UnicodeStr => "Find(Uni): ",
@@ -287,7 +327,7 @@ impl PathInputLine {
 }
 
 impl InputLineBehavior for PathInputLine {
-    fn get_prefix(&mut self) -> &str {
+    fn get_prefix(&self) -> &str {
         &self.prefix
     }
 
@@ -319,7 +359,7 @@ impl ConfigSetLine {
 }
 
 impl InputLineBehavior for ConfigSetLine {
-    fn get_prefix(&mut self) -> &str {
+    fn get_prefix(&self) -> &str {
         &self.prefix
     }
 

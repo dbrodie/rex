@@ -37,6 +37,7 @@ impl RustBoxFrontend {
             Style::Hint => (RB_UNDERLINE, Color::Default, Color::Default),
             Style::StatusBar => (RB_REVERSE, Color::Default, Color::Default),
             Style::InputLine => (RB_BOLD, Color::White, Color::Blue),
+            Style::InputLineError => (RB_BOLD, Color::White, Color::Red),
             Style::MenuShortcut => (RB_BOLD, Color::Default, Color::Default),
             Style::MenuEntry => (RB_NORMAL, Color::Default, Color::Default),
             Style::MenuTitle => (RB_NORMAL, Color::Default, Color::Default),
