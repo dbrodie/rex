@@ -1,4 +1,4 @@
-use rustbox::{RustBox, InputMode, InitOptions, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE};
+use rustbox::{RustBox, InputMode, InitOptions, Color, RB_NORMAL, RB_BOLD, RB_UNDERLINE, RB_REVERSE};
 use rustbox::keyboard::Key;
 use rustbox::Event as RB_Event;
 use rustbox::Style as RB_Style;
@@ -33,9 +33,9 @@ impl RustBoxFrontend {
     fn style_to_triple(style: Style) -> (RB_Style, Color, Color) {
         match style {
             Style::Default => (RB_NORMAL, Color::Default, Color::Default),
-            Style::Selection => (RB_NORMAL, Color::Black, Color::White),
+            Style::Selection => (RB_REVERSE, Color::Default, Color::Default),
             Style::Hint => (RB_UNDERLINE, Color::Default, Color::Default),
-            Style::StatusBar => (RB_NORMAL, Color::Black, Color::White),
+            Style::StatusBar => (RB_REVERSE, Color::Default, Color::Default),
             Style::InputLine => (RB_BOLD, Color::White, Color::Blue),
             Style::MenuShortcut => (RB_BOLD, Color::Default, Color::Default),
             Style::MenuEntry => (RB_NORMAL, Color::Default, Color::Default),
