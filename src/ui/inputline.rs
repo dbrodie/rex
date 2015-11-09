@@ -22,7 +22,7 @@ pub enum BaseInputLineActions {
 }
 
 pub trait InputLineBehavior {
-    fn get_prefix(&mut self) -> String;
+    fn get_prefix(&mut self) -> &str;
     fn do_enter(&mut self, data: &[u8]);
     fn do_cancel(&mut self);
     fn do_shortcut(&mut self, shortcut: char) {
@@ -155,11 +155,11 @@ impl GotoInputLineBehavior {
 }
 
 impl InputLineBehavior for GotoInputLineBehavior {
-    fn get_prefix(&mut self) -> String {
+    fn get_prefix(&mut self) -> &str {
         match self.radix {
-            RadixType::DecRadix => "Goto (Dec):".to_string(),
-            RadixType::HexRadix => "Goto (Hex):".to_string(),
-            RadixType::OctRadix => "Goto (Oct):".to_string(),
+            RadixType::DecRadix => "Goto (Dec):",
+            RadixType::HexRadix => "Goto (Hex):",
+            RadixType::OctRadix => "Goto (Oct):",
         }
     }
 
@@ -236,11 +236,11 @@ impl FindInputLine {
 }
 
 impl InputLineBehavior for FindInputLine {
-    fn get_prefix(&mut self) -> String {
+    fn get_prefix(&mut self) -> &str {
         match self.data_type {
-            DataType::AsciiStr => "Find(Ascii): ".to_string(),
-            DataType::UnicodeStr => "Find(Uni): ".to_string(),
-            DataType::HexStr => "Find(Hex): ".to_string(),
+            DataType::AsciiStr => "Find(Ascii): ",
+            DataType::UnicodeStr => "Find(Uni): ",
+            DataType::HexStr => "Find(Hex): ",
         }
     }
 
@@ -287,8 +287,8 @@ impl PathInputLine {
 }
 
 impl InputLineBehavior for PathInputLine {
-    fn get_prefix(&mut self) -> String {
-        self.prefix.clone()
+    fn get_prefix(&mut self) -> &str {
+        &self.prefix
     }
 
     fn do_enter(&mut self, data: &[u8]) {
@@ -319,8 +319,8 @@ impl ConfigSetLine {
 }
 
 impl InputLineBehavior for ConfigSetLine {
-    fn get_prefix(&mut self) -> String {
-        self.prefix.clone()
+    fn get_prefix(&mut self) -> &str {
+        &self.prefix
     }
 
     fn do_enter(&mut self, data: &[u8]) {
