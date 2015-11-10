@@ -6,10 +6,13 @@ use std::path::{PathBuf, Path};
 use std::marker::PhantomData;
 use std::error::Error;
 
+use toml;
+
 use rex_utils;
 use rex_utils::rect::Rect;
 use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::Filesystem;
+use super::super::config::Value;
 use super::input::Input;
 use super::widget::Widget;
 
@@ -405,7 +408,7 @@ pub struct ConfigSetLine {
 }
 
 impl ConfigSetLine {
-    pub fn new(prefix: String) -> ConfigSetLine {
+    pub fn new(prefix: String, value: Value) -> ConfigSetLine {
         ConfigSetLine {
             prefix: prefix,
             on_done: Default::default(),
