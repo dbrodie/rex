@@ -1,13 +1,15 @@
 use std::str;
-use std::env;
 use std::io;
 use std::fs;
 use rustc_serialize::hex::FromHex;
 use std::path::{PathBuf, Path};
+use std::marker::PhantomData;
+use std::error::Error;
 
 use rex_utils;
 use rex_utils::rect::Rect;
 use super::super::frontend::{Frontend, Style, KeyPress};
+use super::super::filesystem::Filesystem;
 use super::input::Input;
 use super::widget::Widget;
 
@@ -331,27 +333,58 @@ impl InputLineBehavior for FindInputLine {
     }
 }
 
-signal_decl!{PathEvent(PathBuf)}
-
-pub struct PathInputLine {
-    pub on_done: PathEvent,
-    pub on_cancel: Canceled,
-    prefix: String,
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum PathInputType {
+    Open,
+    Save
 }
 
-impl PathInputLine {
-    pub fn new(prefix: String) -> PathInputLine {
+signal_decl!{PathEvent(PathBuf)}
+
+pub struct PathInputLine<FS: Filesystem> {
+    pub on_done: PathEvent,
+    pub on_cancel: Canceled,
+    input_type: PathInputType,
+    res: io::Result<()>,
+
+    _fs: PhantomData<FS>
+}
+
+impl<FS: Filesystem> PathInputLine<FS> {
+    pub fn new(input_type: PathInputType) -> PathInputLine<FS> {
         PathInputLine {
-            prefix: prefix,
+            input_type: input_type,
             on_done: Default::default(),
-            on_cancel: Default::default()
+            on_cancel: Default::default(),
+            res: Ok(()),
+
+            _fs: PhantomData,
         }
     }
 }
 
-impl InputLineBehavior for PathInputLine {
+impl<FS: Filesystem> InputLineBehavior for PathInputLine<FS> {
     fn get_prefix(&self) -> &str {
-        &self.prefix
+        if self.input_type == PathInputType::Open {
+            "Open: "
+        } else {
+            "Save: "
+        }
+    }
+
+    fn get_status(&self) -> Result<&str, &str> {
+        match self.res {
+            Ok(_) => Ok(""),
+            Err(ref e) => Err(e.description())
+        }
+    }
+
+    fn do_update(&mut self, data: &[u8]) {
+        self.res = if self.input_type == PathInputType::Open {
+            FS::can_open(Path::new(str::from_utf8(data).unwrap()))
+        } else {
+            FS::can_save(Path::new(str::from_utf8(data).unwrap()))
+        }
     }
 
     fn do_enter(&mut self, data: &[u8]) {

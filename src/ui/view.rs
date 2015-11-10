@@ -21,7 +21,14 @@ use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::{Filesystem, DefaultFilesystem};
 use super::input::Input;
 use super::widget::Widget;
-use super::inputline::{InputLine, GotoInputLineBehavior, FindInputLine, PathInputLine, ConfigSetLine};
+use super::inputline::{
+    InputLine,
+    GotoInputLineBehavior,
+    FindInputLine,
+    PathInputLine,
+    PathInputType,
+    ConfigSetLine,
+};
 use super::overlay::OverlayText;
 use super::config::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
@@ -885,7 +892,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn start_save(&mut self) {
-        let mut path_line = PathInputLine::new("Save: ".into());
+        let mut path_line: PathInputLine<FS> = PathInputLine::new(PathInputType::Save);
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.child_widget = None;
@@ -905,7 +912,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn start_open(&mut self) {
-        let mut path_line = PathInputLine::new("Open: ".into());
+        let mut path_line: PathInputLine<FS> = PathInputLine::new(PathInputType::Open);
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.child_widget = None;
