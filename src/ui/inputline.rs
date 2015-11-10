@@ -1,6 +1,9 @@
 use std::str;
+use std::env;
+use std::io;
+use std::fs;
 use rustc_serialize::hex::FromHex;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use rex_utils;
 use rex_utils::rect::Rect;
@@ -227,6 +230,7 @@ impl InputLineBehavior for GotoInputLineBehavior {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum DataType {
     AsciiStr,
     UnicodeStr,
@@ -237,6 +241,7 @@ signal_decl!{FindEvent(Vec<u8>)}
 
 pub struct FindInputLine {
     data_type: DataType,
+    is_valid: bool,
     pub on_find: FindEvent,
     pub on_cancel: Canceled,
 }
@@ -245,6 +250,7 @@ impl FindInputLine {
     pub fn new() -> FindInputLine {
         FindInputLine {
             data_type: DataType::AsciiStr,
+            is_valid: true,
             on_find: Default::default(),
             on_cancel: Default::default(),
         }
@@ -254,16 +260,20 @@ impl FindInputLine {
         self.data_type = dt;
     }
 
+    fn parse_hex(&self, data: &[u8]) -> Option<Vec<u8>> {
+        str::from_utf8(data).unwrap().from_hex().ok()
+    }
+
     fn do_find(&mut self, data: &[u8]) {
-        let ll = str::from_utf8(data).unwrap().from_hex();
+        let ll = self.parse_hex(data);
 
         let needle: Vec<u8> = match self.data_type {
             DataType::AsciiStr => data.clone().into(),
             DataType::UnicodeStr => data.clone().into(),
             DataType::HexStr => {
                 match ll {
-                    Ok(n) => n,
-                    Err(_) => {
+                    Some(n) => n,
+                    None => {
                         self.on_cancel.signal(Some(format!("Bad hex value")));
                         return;
                     }
@@ -282,6 +292,19 @@ impl InputLineBehavior for FindInputLine {
             DataType::UnicodeStr => "Find(Uni): ",
             DataType::HexStr => "Find(Hex): ",
         }
+    }
+
+    fn get_status(&self) -> Result<&str, &str> {
+        if self.is_valid {
+            Ok("")
+        } else {
+            Err("Invalid Hex Value")
+        }
+    }
+
+
+    fn do_update(&mut self, data: &[u8]) {
+        self.is_valid = (self.data_type != DataType::HexStr) || self.parse_hex(data).is_some();
     }
 
     fn do_enter(&mut self, data: &[u8]) {
