@@ -348,7 +348,7 @@ pub struct PathInputLine<FS: Filesystem> {
     pub on_done: PathEvent,
     pub on_cancel: Canceled,
     input_type: PathInputType,
-    res: io::Result<()>,
+    res: Option<String>,
 
     _fs: PhantomData<FS>
 }
@@ -359,7 +359,7 @@ impl<FS: Filesystem> PathInputLine<FS> {
             input_type: input_type,
             on_done: Default::default(),
             on_cancel: Default::default(),
-            res: Ok(()),
+            res: None,
 
             _fs: PhantomData,
         }
@@ -376,17 +376,18 @@ impl<FS: Filesystem> InputLineBehavior for PathInputLine<FS> {
     }
 
     fn get_status(&self) -> Result<&str, &str> {
-        match self.res {
-            Ok(_) => Ok(""),
-            Err(ref e) => Err(e.description())
+        if let Some(ref s) = self.res {
+            Err(s)
+        } else {
+            Ok("")
         }
     }
 
     fn do_update(&mut self, data: &[u8]) {
         self.res = if self.input_type == PathInputType::Open {
-            FS::can_open(Path::new(str::from_utf8(data).unwrap()))
+            FS::can_open(Path::new(str::from_utf8(data).unwrap())).err().map(|e| format!("{}", e))
         } else {
-            FS::can_save(Path::new(str::from_utf8(data).unwrap()))
+            FS::can_save(Path::new(str::from_utf8(data).unwrap())).err().map(|e| format!("{}", e))
         }
     }
 
