@@ -5,6 +5,7 @@ pub enum Style {
     Hint,
     StatusBar,
     InputLine,
+    InputLineError,
     MenuShortcut,
     MenuEntry,
     MenuTitle

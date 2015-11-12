@@ -10,18 +10,27 @@ use std::borrow::Cow;
 use std::rc::Rc;
 use std::marker::PhantomData;
 
+use toml;
+
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use rex_utils::signals::SignalReceiver;
-use super::super::config::Config;
+use super::super::config::{Config, Value};
 
 use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::{Filesystem, DefaultFilesystem};
 use super::input::Input;
 use super::widget::Widget;
-use super::inputline::{GotoInputLine, FindInputLine, PathInputLine, ConfigSetLine};
+use super::inputline::{
+    InputLine,
+    GotoInputLineBehavior,
+    FindInputLine,
+    PathInputLine,
+    PathInputType,
+    ConfigSetLine,
+};
 use super::overlay::OverlayText;
 use super::config::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
@@ -774,16 +783,17 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 obj.clear_status();
             }
         }));
-        config_screen.on_selected.connect(signal!(sr with |obj, conf_name| {
+        config_screen.on_selected.connect(signal!(sr with |obj, conf_name, conf_val| {
             obj.child_widget = None;
-            obj.start_config_edit(conf_name);
+            obj.start_config_edit(conf_name, conf_val.clone());
         }));
         self.child_widget = Some((Box::new(config_screen), OVERLAY_LAYOUT));
     }
 
-    fn start_config_edit(&mut self, conf_name: &'static str) {
+    fn start_config_edit(&mut self, conf_name: &'static str, conf_value: Value) {
         let sr = &self.signal_receiver;
-        let mut config_set = ConfigSetLine::new(format!("{} = ", conf_name));
+        let initial_val = format!("{}", conf_value).into_bytes();
+        let mut config_set = ConfigSetLine::new(format!("{} = ", conf_name), conf_value);
         config_set.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             obj.child_widget = None;
             if let Some(ref msg) = opt_msg {
@@ -796,7 +806,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             obj.child_widget = None;
             obj.set_config(conf_name, &config_value);
         }));
-        self.child_widget = Some((Box::new(config_set), INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new_with_value(config_set, initial_val)), INPUTLINE_LAYOUT));
     }
 
     /// Setting the config is only "allowed" from the main view, and all child widgets should have
@@ -845,7 +855,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn start_goto(&mut self) {
-        let mut gt = GotoInputLine::new();
+        let mut gt = GotoInputLineBehavior::new();
         let sr = &self.signal_receiver;
         gt.on_done.connect(signal!(sr with |obj, pos| {
             obj.child_widget = None;
@@ -861,7 +871,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(gt) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(gt)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_find(&mut self) {
@@ -881,11 +891,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(find_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(find_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_save(&mut self) {
-        let mut path_line = PathInputLine::new("Save: ".into());
+        let mut path_line: PathInputLine<FS> = PathInputLine::new(PathInputType::Save);
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.child_widget = None;
@@ -901,11 +911,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(path_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn start_open(&mut self) {
-        let mut path_line = PathInputLine::new("Open: ".into());
+        let mut path_line: PathInputLine<FS> = PathInputLine::new(PathInputType::Open);
         let sr = &self.signal_receiver;
         path_line.on_done.connect(signal!(sr with |obj, path| {
             obj.child_widget = None;
@@ -921,7 +931,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         }));
 
-        self.child_widget = Some((Box::new(path_line) as Box<Widget>, INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new(path_line)) as Box<Widget>, INPUTLINE_LAYOUT));
     }
 
     fn process_msgs(&mut self) {

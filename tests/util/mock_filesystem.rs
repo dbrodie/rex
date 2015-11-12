@@ -48,10 +48,18 @@ impl Filesystem for MockFilesystem {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
+    fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
+        Ok(p.as_ref().into())
+    }
+
     fn open<P: AsRef<Path>>(path: P) -> io::Result<Self::FSRead> {
         FILES.lock().unwrap().get(path.as_ref()).ok_or(io::Error::new(io::ErrorKind::NotFound, "File not found!")).map(|file|
             MockFile::new(file.clone())
         )
+    }
+
+    fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()> {
+        Ok(())
     }
 
     fn save<P: AsRef<Path>>(path: P) -> io::Result<Self::FSWrite> {
@@ -62,6 +70,10 @@ impl Filesystem for MockFilesystem {
         } else {
             Err(io::Error::new(io::ErrorKind::AlreadyExists, "File alredy exists!"))
         }
+    }
+
+    fn can_save<P: AsRef<Path>>(p: P) -> io::Result<()> {
+        Ok(())
     }
 }
 

@@ -52,12 +52,12 @@ fn test_basic_open() {
     frontend.run_str(pedit, "AA");
     frontend.run_keys(pedit, vec![KeyPress::Enter]);
 
-    // And make sure it is in the right place
-    assert_eq!(pedit.get_position(), (len-1) as isize);
-
     // Make sure the opened file name is correct
     let name = Path::new("test_basic_open");
     assert_eq!(name, pedit.get_file_path().unwrap());
+
+    // And make sure it is in the right place
+    assert_eq!(pedit.get_position(), (len-1) as isize);
 }
 
 #[test]

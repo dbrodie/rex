@@ -12,6 +12,8 @@ use std::fmt::{Display, Formatter};
 use std::error::Error;
 use toml;
 
+pub use toml::Value;
+
 #[derive(Debug)]
 pub enum ConfigError {
     IoError(io::Error),

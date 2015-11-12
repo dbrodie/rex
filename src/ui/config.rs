@@ -5,7 +5,7 @@ use std::cmp;
 use rex_utils;
 use rex_utils::rect::Rect;
 
-use super::super::config::Config;
+use super::super::config::{Config, Value};
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
@@ -18,7 +18,7 @@ pub enum ConfigScreenActions {
     Cancel,
 }
 
-signal_decl!{ConfigSelected(&'static str)}
+signal_decl!{ConfigSelected(&'static str, Value)}
 
 pub struct ConfigScreen {
     pub on_cancel: Canceled,
@@ -38,8 +38,8 @@ impl ConfigScreen {
     }
 
     fn select(&mut self) {
-        if let Some((name, _)) = self.config.values().nth(self.cursor_line as usize) {
-            self.on_selected.signal(name);
+        if let Some((name, val)) = self.config.values().nth(self.cursor_line as usize) {
+            self.on_selected.signal(name, val);
         }
     }
 }
