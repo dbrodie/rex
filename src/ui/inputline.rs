@@ -5,6 +5,7 @@ use rustc_serialize::hex::FromHex;
 use std::path::{PathBuf, Path};
 use std::marker::PhantomData;
 use std::error::Error;
+use std::str::FromStr;
 
 use toml;
 
@@ -52,9 +53,13 @@ pub struct InputLine<T:InputLineBehavior> {
 
 impl<T:InputLineBehavior> InputLine<T> {
     pub fn new(behavior: T) -> InputLine<T> {
+        InputLine::new_with_value(behavior, vec![])
+    }
+
+    pub fn new_with_value(behavior: T, initial_val: Vec<u8>) -> InputLine<T> {
         InputLine {
             behavior: behavior,
-            data: vec![],
+            data: initial_val,
             input_pos: 0,
         }
     }
@@ -406,12 +411,16 @@ pub struct ConfigSetLine {
     pub on_done: ConfigSetEvent,
     pub on_cancel: Canceled,
     prefix: String,
+    err: Option<String>,
+    value: Value,
 }
 
 impl ConfigSetLine {
     pub fn new(prefix: String, value: Value) -> ConfigSetLine {
         ConfigSetLine {
             prefix: prefix,
+            value: value,
+            err: None,
             on_done: Default::default(),
             on_cancel: Default::default(),
         }
@@ -421,6 +430,25 @@ impl ConfigSetLine {
 impl InputLineBehavior for ConfigSetLine {
     fn get_prefix(&self) -> &str {
         &self.prefix
+    }
+
+    fn get_status(&self) -> Result<&str, &str> {
+        if let Some(ref s) = self.err {
+            Err(s)
+        } else {
+            Ok("")
+        }
+    }
+
+    fn do_update(&mut self, data: &[u8]) {
+        let new_c = format!("a = {}", str::from_utf8(&data).unwrap());
+        let val_result = Value::from_str(&new_c);
+        self.err = match val_result {
+            Err(e_vec) => Some(format!("{}", e_vec[0])),
+            Ok(ref val) if !self.value.same_type(val.lookup("a").unwrap()) =>
+                Some(format!("Value is of type {} should be {}", val.type_str(), self.value.type_str())),
+            _ => None,
+        }
     }
 
     fn do_enter(&mut self, data: &[u8]) {

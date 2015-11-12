@@ -792,6 +792,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
     fn start_config_edit(&mut self, conf_name: &'static str, conf_value: Value) {
         let sr = &self.signal_receiver;
+        let initial_val = format!("{}", conf_value).into_bytes();
         let mut config_set = ConfigSetLine::new(format!("{} = ", conf_name), conf_value);
         config_set.on_cancel.connect(signal!(sr with |obj, opt_msg| {
             obj.child_widget = None;
@@ -805,7 +806,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             obj.child_widget = None;
             obj.set_config(conf_name, &config_value);
         }));
-        self.child_widget = Some((Box::new(InputLine::new(config_set)), INPUTLINE_LAYOUT));
+        self.child_widget = Some((Box::new(InputLine::new_with_value(config_set, initial_val)), INPUTLINE_LAYOUT));
     }
 
     /// Setting the config is only "allowed" from the main view, and all child widgets should have
