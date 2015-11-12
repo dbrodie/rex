@@ -190,13 +190,8 @@ properties can be set on the commandline as rex -C show_ascii=false.
         p.join("rex").join("rex.conf")
     }
 
-    pub fn open_default() -> Result<Config, ConfigError> {
-        let config_path = Config::get_config_path();
-        match fs::metadata(config_path) {
-            Ok(_) => Config::from_file(Config::get_config_path()),
-            Err(ref err) if err.kind() == ErrorKind::NotFound => Ok(Default::default()),
-            Err(err) => Err(err.into()),
-        }
+    pub fn open_default() -> Config {
+        Config::from_file(Config::get_config_path()).unwrap_or_else(|_| Default::default())
     }
 }
 

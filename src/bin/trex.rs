@@ -51,11 +51,7 @@ fn main() {
         process::exit(0);
     }
 
-    let config_res = Config::open_default();
-    let mut config = config_res.unwrap_or_else(
-        |e| exit_err("Couldn't open config file", e)
-    );
-
+    let config = Config::open_default();
     let mut edit: HexEdit = HexEdit::new(config);
 
     if let Some(ref filename) = args.arg_FILE {
