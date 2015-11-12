@@ -4,5 +4,5 @@ mod widget;
 mod overlay;
 mod inputline;
 mod menu;
-mod config;
+mod configscreen;
 pub mod view;

@@ -32,7 +32,7 @@ use super::inputline::{
     ConfigSetLine,
 };
 use super::overlay::OverlayText;
-use super::config::ConfigScreen;
+use super::configscreen::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
