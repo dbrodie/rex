@@ -25,6 +25,7 @@ pub enum BaseInputLineActions {
     Ctrl(char),
     MoveLeft,
     MoveRight,
+    Delete,
     DeleteWithMove,
     Ok,
     Cancel
@@ -59,8 +60,8 @@ impl<T:InputLineBehavior> InputLine<T> {
     pub fn new_with_value(behavior: T, initial_val: Vec<u8>) -> InputLine<T> {
         InputLine {
             behavior: behavior,
+            input_pos: initial_val.len() as isize,
             data: initial_val,
-            input_pos: 0,
         }
     }
 }
@@ -98,6 +99,11 @@ impl<T:InputLineBehavior> Widget for InputLine<T> {
             }
             BaseInputLineActions::Ctrl(ch) => {
                 self.behavior.do_shortcut(ch)
+            }
+            BaseInputLineActions::Delete => {
+                if self.input_pos < self.data.len() as isize {
+                    self.data.remove(self.input_pos as usize);
+                }
             }
             BaseInputLineActions::DeleteWithMove => {
                 if self.input_pos > 0 {

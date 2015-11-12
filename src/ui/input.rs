@@ -52,6 +52,7 @@ impl Input {
             KeyPress::Shortcut(c) => Some(BaseInputLineActions::Ctrl(c)),
             KeyPress::Left => Some(BaseInputLineActions::MoveLeft),
             KeyPress::Right => Some(BaseInputLineActions::MoveRight),
+            KeyPress::Delete => Some(BaseInputLineActions::Delete),
             KeyPress::Backspace => Some(BaseInputLineActions::DeleteWithMove),
             KeyPress::Enter => Some(BaseInputLineActions::Ok),
             KeyPress::Esc => Some(BaseInputLineActions::Cancel),
