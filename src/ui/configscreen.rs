@@ -6,6 +6,7 @@ use rex_utils;
 use rex_utils::rect::Rect;
 
 use super::super::config::{Config, Value};
+use super::super::filesystem::Filesystem;
 use super::common::Canceled;
 use super::input::Input;
 use super::widget::Widget;
@@ -20,15 +21,15 @@ pub enum ConfigScreenActions {
 
 signal_decl!{ConfigSelected(&'static str, Value)}
 
-pub struct ConfigScreen {
+pub struct ConfigScreen<FS:Filesystem+'static> {
     pub on_cancel: Canceled,
     pub on_selected: ConfigSelected,
-    config: Rc<Config>,
+    config: Rc<Config<FS>>,
     cursor_line: isize,
 }
 
-impl ConfigScreen {
-    pub fn with_config(config: Rc<Config>) -> ConfigScreen {
+impl<FS: Filesystem+'static> ConfigScreen<FS> {
+    pub fn with_config(config: Rc<Config<FS>>) -> ConfigScreen<FS> {
         ConfigScreen {
             on_cancel: Default::default(),
             on_selected: Default::default(),
@@ -44,7 +45,7 @@ impl ConfigScreen {
     }
 }
 
-impl Widget for ConfigScreen {
+impl<FS: Filesystem+'static> Widget for ConfigScreen<FS> {
     fn input(&mut self, input: &Input, key: KeyPress) -> bool {
         let action = if let Some(action) = input.config_input(key) { action } else {
             return false;

@@ -51,8 +51,7 @@ fn main() {
         process::exit(0);
     }
 
-    let config = Config::open_default();
-    let mut edit: HexEdit = HexEdit::new(config);
+    let mut edit: HexEdit = HexEdit::new();
 
     if let Some(ref filename) = args.arg_FILE {
         edit.open(&Path::new(filename));

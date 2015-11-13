@@ -103,9 +103,9 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
     ]),
 ];
 
-pub struct HexEdit<FS = DefaultFilesystem> {
+pub struct HexEdit<FS: Filesystem+'static = DefaultFilesystem> {
     buffer: SplitVec,
-    config: Rc<Config>,
+    config: Rc<Config<FS>>,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
@@ -126,7 +126,8 @@ pub struct HexEdit<FS = DefaultFilesystem> {
 }
 
 impl<FS: Filesystem+'static> HexEdit<FS> {
-    pub fn new(config: Config) -> HexEdit<FS> {
+    pub fn new() -> HexEdit<FS> {
+        let config = Config::open_default();
         HexEdit {
             buffer: SplitVec::new(),
             config: Rc::new(config),
