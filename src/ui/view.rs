@@ -1,4 +1,5 @@
 use std::cmp;
+use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
@@ -17,7 +18,7 @@ use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use rex_utils::signals::SignalReceiver;
-use super::super::config::{Config, Value};
+use super::super::config::{Config, Value, ConfigError};
 
 use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::{Filesystem, DefaultFilesystem};
@@ -127,8 +128,13 @@ pub struct HexEdit<FS: Filesystem+'static = DefaultFilesystem> {
 
 impl<FS: Filesystem+'static> HexEdit<FS> {
     pub fn new() -> HexEdit<FS> {
-        let config = Config::open_default();
-        HexEdit {
+        let (config, err_msg) = match Config::open_default() {
+            Ok(config) => (config, None),
+            Err(ConfigError::IoError(ref err)) if err.kind() == io::ErrorKind::NotFound =>
+                (Default::default(), None),
+            Err(err) => (Default::default(), Some(err)),
+        };
+        let mut h = HexEdit {
             buffer: SplitVec::new(),
             config: Rc::new(config),
             rect: Default::default(),
@@ -147,7 +153,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             input: Input::new(),
             signal_receiver: Rc::new(SignalReceiver::new()),
             _fs: PhantomData,
+        };
+        if let Some(err) = err_msg {
+            h.status(format!("Error opening config: {}", err));
         }
+        h
     }
 
     fn reset(&mut self) {
@@ -816,6 +826,9 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let res = Rc::get_mut(& mut self.config).unwrap().set_from_key_value(key, &val);
         res.unwrap_or_else(
             |e| self.status(format!("Can't set {} to {}: {}", key, val, e))
+        );
+        self.config.save_default().unwrap_or_else(
+            |e| self.status(format!("Can't save config: {}", e))
         );
     }
 

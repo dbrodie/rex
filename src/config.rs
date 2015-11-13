@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
 use std::env;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error::Error;
@@ -188,6 +188,14 @@ properties can be set on the commandline as rex -C show_ascii=false.
         Ok(config)
     }
 
+    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
+        let mut f = try!(File::create(path));
+        for (key, value) in self.values() {
+            try!(writeln!(&mut f, "{}={}", key, value));
+        }
+        Ok(())
+    }
+
     fn get_config_path() -> PathBuf {
         let mut p = PathBuf::new();
         p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
@@ -196,8 +204,12 @@ properties can be set on the commandline as rex -C show_ascii=false.
         p.join("rex").join("rex.conf")
     }
 
-    pub fn open_default() -> Config<FS> {
-        Self::from_file(Self::get_config_path()).unwrap_or_else(|_| Default::default())
+    pub fn open_default() -> Result<Config<FS>, ConfigError> {
+        Self::from_file(Self::get_config_path())
+    }
+
+    pub fn save_default(&self) ->Result<(), ConfigError> {
+        self.to_file(Self::get_config_path())
     }
 }
 
