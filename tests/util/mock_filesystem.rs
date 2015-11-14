@@ -48,6 +48,10 @@ impl Filesystem for MockFilesystem {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
+    fn get_config_home() -> PathBuf {
+        PathBuf::from("/config/")
+    }
+
     fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
         Ok(p.as_ref().into())
     }

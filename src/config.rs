@@ -181,7 +181,7 @@ properties can be set on the commandline as rex -C show_ascii=false.
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config<FS>, ConfigError> {
         let mut s = String::new();
-        let mut f = try!(File::open(path));
+        let mut f = try!(FS::open(path));
         try!(f.read_to_string(&mut s));
         let mut config: Config<FS> = Default::default();
         try!(config.set_from_string(&s));
@@ -189,7 +189,7 @@ properties can be set on the commandline as rex -C show_ascii=false.
     }
 
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
-        let mut f = try!(File::create(path));
+        let mut f = try!(FS::save(path));
         for (key, value) in self.values() {
             try!(writeln!(&mut f, "{}={}", key, value));
         }
@@ -197,10 +197,7 @@ properties can be set on the commandline as rex -C show_ascii=false.
     }
 
     fn get_config_path() -> PathBuf {
-        let mut p = PathBuf::new();
-        p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
-                |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
-            ));
+        let mut p = FS::get_config_home();
         p.join("rex").join("rex.conf")
     }
 
