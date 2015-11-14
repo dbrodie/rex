@@ -22,11 +22,9 @@ pub fn simple_init_with_vec(vec: Vec<u8>) -> (HexEdit<mock_filesystem::MockFiles
 }
 
 fn simple_init_helper(maybe_vec: Option<Vec<u8>>) -> (HexEdit<mock_filesystem::MockFilesystem>, mock_frontend::MockFrontend) {
-    mock_filesystem::MockFilesystem::reset();
+    mock_filesystem::DefMockFilesystem::reset();
 
-    let config : Config = Default::default();
-
-    let mut edit: HexEdit<mock_filesystem::MockFilesystem> = HexEdit::new(config);
+    let mut edit: HexEdit<mock_filesystem::MockFilesystem> = HexEdit::new();
     let mut frontend = mock_frontend::MockFrontend::new();
 
     if let Some(vec) = maybe_vec {

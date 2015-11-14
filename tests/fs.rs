@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate typenum;
 
 extern crate rex;
 
@@ -9,7 +10,7 @@ use std::path::Path;
 
 use rex::frontend::{Event, KeyPress};
 
-use util::mock_filesystem::MockFilesystem;
+use util::mock_filesystem::{DefMockFilesystem, MockFilesystem};
 
 // Little helper function till Iterator.eq stabalizes
 fn iter_eq<I, J>(one: I, other: J) -> bool where
@@ -39,7 +40,7 @@ fn test_basic_open() {
     let (mut edit, mut frontend) = util::simple_init_empty();
     let pedit = &mut edit;
 
-    MockFilesystem::put("test_basic_open", v);
+    DefMockFilesystem::put("test_basic_open", v);
 
     // Open file with the marker
     frontend.run_keys(pedit, vec![KeyPress::Shortcut('o')]);
@@ -73,5 +74,5 @@ fn test_basic_save() {
     frontend.run_keys(pedit, vec![KeyPress::Enter]);
 
     // Make sure they are equal
-    assert!(iter_eq(v.iter(), MockFilesystem::get_inner("test_basic_save").iter()));
+    assert!(iter_eq(v.iter(), DefMockFilesystem::get_inner("test_basic_save").iter()));
 }

@@ -5,6 +5,9 @@ use std::io::{Cursor, Read, Write};
 use std::collections::hash_map::{HashMap, Entry};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::cmp;
+use std::marker::PhantomData;
+use typenum::uint::Unsigned;
+use typenum::consts::U0;
 
 use rex::filesystem::Filesystem;
 
@@ -41,10 +44,14 @@ impl Write for MockFile {
     }
 }
 
-pub struct MockFilesystem;
+pub type DefMockFilesystem = MockFilesystem<U0>;
+
+pub struct MockFilesystem<N: Unsigned = U0> (
+    PhantomData<N>
+);
 
 
-impl Filesystem for MockFilesystem {
+impl<N: Unsigned> Filesystem for MockFilesystem<N> {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
@@ -81,7 +88,7 @@ impl Filesystem for MockFilesystem {
     }
 }
 
-impl MockFilesystem {
+impl<N: Unsigned> MockFilesystem<N> {
     pub fn reset() {
         FILES.lock().unwrap().clear();
     }
