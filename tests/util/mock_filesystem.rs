@@ -7,14 +7,27 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::cmp;
 use std::marker::PhantomData;
 use typenum::uint::Unsigned;
-use typenum::consts::U0;
+use typenum::consts;
 
 use rex::filesystem::Filesystem;
 
 use super::bytes;
 
+pub type DefaultConfig = consts::U0;
+pub type ConfigTest1 = consts::U1;
+const NumConfigTests: usize = 2;
+
+const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
+
 lazy_static! {
-    pub static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Cursor<Vec<u8>>>>>> = Mutex::new(HashMap::new());
+    static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Cursor<Vec<u8>>>>>> = Mutex::new(HashMap::new());
+    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Cursor<Vec<u8>>>>>; NumConfigTests]> = {
+        let mut tmp: [Option<Arc<Mutex<Cursor<Vec<u8>>>>>; NumConfigTests] = [
+            None,
+            None
+        ];
+        Mutex::new(tmp)
+    };
 }
 
 pub struct MockFile(Arc<Mutex<Cursor<Vec<u8>>>>);
@@ -44,9 +57,9 @@ impl Write for MockFile {
     }
 }
 
-pub type DefMockFilesystem = MockFilesystem<U0>;
+pub type DefMockFilesystem = MockFilesystem<consts::U0>;
 
-pub struct MockFilesystem<N: Unsigned = U0> (
+pub struct MockFilesystem<N: Unsigned = consts::U0> (
     PhantomData<N>
 );
 
@@ -64,6 +77,9 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
     }
 
     fn open<P: AsRef<Path>>(path: P) -> io::Result<Self::FSRead> {
+        if path.as_ref() == Path::new(CONFIG_PATH) {
+            return Self::open_config()
+        }
         FILES.lock().unwrap().get(path.as_ref()).ok_or(io::Error::new(io::ErrorKind::NotFound, "File not found!")).map(|file|
             MockFile::new(file.clone())
         )
@@ -74,6 +90,9 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
     }
 
     fn save<P: AsRef<Path>>(path: P) -> io::Result<Self::FSWrite> {
+        if path.as_ref() == Path::new(CONFIG_PATH) {
+            return Self::save_config()
+        }
         let file = Arc::new(Mutex::new(Cursor::new(Vec::new())));
         if let Entry::Vacant(entry) = FILES.lock().unwrap().entry(path.as_ref().into()) {
             entry.insert(file.clone());
@@ -89,6 +108,25 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
 }
 
 impl<N: Unsigned> MockFilesystem<N> {
+    pub fn open_config() -> io::Result<<MockFilesystem<N> as Filesystem>::FSRead> {
+        if let Some(ref file) = CONFIG_FILES.lock().unwrap()[N::to_usize()] {
+            Ok(MockFile::new(file.clone()))
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "File not found!"))
+        }
+    }
+
+    pub fn save_config() -> io::Result<<MockFilesystem<N> as Filesystem>::FSWrite> {
+        let mut configs = CONFIG_FILES.lock().unwrap();
+        if let Some(ref file) = configs[N::to_usize()] {
+            return Ok(MockFile::new(file.clone()));
+        }
+
+        let file = Arc::new(Mutex::new(Cursor::new(Vec::new())));
+        configs[N::to_usize()] = Some(file.clone());
+        Ok(MockFile::new(file))
+    }
+
     pub fn reset() {
         FILES.lock().unwrap().clear();
     }
