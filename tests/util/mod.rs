@@ -5,7 +5,6 @@ pub mod bytes;
 use typenum::uint::Unsigned;
 use typenum::consts;
 
-use rex::config::Config;
 use rex::ui::view::HexEdit;
 
 pub fn generate_vec(size: usize) -> Vec<u8> {

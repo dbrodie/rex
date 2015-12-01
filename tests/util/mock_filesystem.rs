@@ -1,11 +1,9 @@
-// use std::slice;
 use std::path::{Path, PathBuf};
 use std::io;
 use std::io::{Cursor, Read, Write};
 use std::ops::DerefMut;
 use std::collections::hash_map::{HashMap, Entry};
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::cmp;
+use std::sync::{Arc, Mutex};
 use std::mem;
 use std::marker::PhantomData;
 use typenum::uint::Unsigned;
@@ -13,18 +11,16 @@ use typenum::consts;
 
 use rex::filesystem::Filesystem;
 
-use super::bytes;
-
 pub type DefaultConfig = consts::U0;
 pub type TestOpenSaveConfig = consts::U1;
-const NumConfigTests: usize = 2;
+const NUM_CONFIG_TESTS: usize = 2;
 
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
 
 lazy_static! {
     static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>> = Mutex::new(HashMap::new());
-    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Vec<u8>>>>; NumConfigTests]> = {
-        let mut tmp: [Option<Arc<Mutex<Vec<u8>>>>; NumConfigTests] = [
+    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Vec<u8>>>>; NUM_CONFIG_TESTS]> = {
+        let mut tmp: [Option<Arc<Mutex<Vec<u8>>>>; NUM_CONFIG_TESTS] = [
             None,
             None
         ];
@@ -105,7 +101,7 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
         )
     }
 
-    fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()> {
+    fn can_open<P: AsRef<Path>>(_p: P) -> io::Result<()> {
         Ok(())
     }
 
@@ -122,7 +118,7 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
         }
     }
 
-    fn can_save<P: AsRef<Path>>(p: P) -> io::Result<()> {
+    fn can_save<P: AsRef<Path>>(_p: P) -> io::Result<()> {
         Ok(())
     }
 }

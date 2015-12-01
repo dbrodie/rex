@@ -6,14 +6,10 @@ extern crate rex;
 
 mod util;
 
-use std::path::Path;
-use std::io::{Read, Write, BufReader};
+use std::io::{Read, Write};
 use std::str;
 
-use typenum::uint::Unsigned;
-
-use rex::frontend::{Event, KeyPress};
-use rex::config::Config;
+use rex::frontend::KeyPress;
 
 use util::mock_filesystem::{MockFilesystem, TestOpenSaveConfig};
 
@@ -23,7 +19,7 @@ fn open_save_conf_test() {
     // Write a simple configuration file
     {
         let mut f = MockFilesystem::<TestOpenSaveConfig>::save_config().unwrap();
-        f.write_all("show_ascii=false\n".as_bytes());
+        f.write_all("show_ascii=false\n".as_bytes()).unwrap();
     }
 
     // Create an editor
@@ -48,7 +44,7 @@ fn open_save_conf_test() {
     {
         let mut buf = Vec::new();
         let mut f = MockFilesystem::<TestOpenSaveConfig>::open_config().unwrap();
-        f.read_to_end(&mut buf);
+        f.read_to_end(&mut buf).unwrap();
         assert_eq!(str::from_utf8(&buf).unwrap().lines().next().unwrap(), "show_ascii=true");
     }
 }
