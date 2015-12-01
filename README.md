@@ -1,6 +1,6 @@
 # Rex - Lean hex editor written in [Rust](http://www.rust-lang.org/)
 
-[![Build Status](https://api.travis-ci.org/dbrodie/rex.svg?branch=master)
+[![Build Status](https://api.travis-ci.org/dbrodie/rex.svg?branch=master)](https://travis-ci.org/dbrodie/rex)
 
 Rex is a small and lean terminal hex editor that is in an extremely alpha stage.
 
