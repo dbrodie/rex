@@ -1,6 +1,8 @@
 # Rex - Lean hex editor written in [Rust](http://www.rust-lang.org/)
 
-Rex is a small and lean terminal hex editor that is in an extremly alpha stage.
+[![Build Status](https://api.travis-ci.org/dbrodie/rex.svg?branch=master)
+
+Rex is a small and lean terminal hex editor that is in an extremely alpha stage.
 
 ## Motivation
 
@@ -10,7 +12,7 @@ aims to make it simple and easy to use.
 
 ## Status
 
-Currently Rex is in an extrmely alpha stage, and while quite functional,
+Currently Rex is in an extremely alpha stage, and while quite functional,
 should not be used without backups. Future goals for Rex include:
 
 - Better support for huge files (mmap based)
