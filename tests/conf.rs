@@ -15,7 +15,7 @@ use typenum::uint::Unsigned;
 use rex::frontend::{Event, KeyPress};
 use rex::config::Config;
 
-use util::mock_filesystem::{MockFilesystem, TestOpenSaveConfig, CONFIG_FILES};
+use util::mock_filesystem::{MockFilesystem, TestOpenSaveConfig};
 
 
 #[test]
@@ -49,6 +49,6 @@ fn open_save_conf_test() {
         let mut buf = Vec::new();
         let mut f = MockFilesystem::<TestOpenSaveConfig>::open_config().unwrap();
         f.read_to_end(&mut buf);
-        assert_eq!(str::from_utf8(&buf).unwrap().lines().next().unwrap(), "show_ascii=false");
+        assert_eq!(str::from_utf8(&buf).unwrap().lines().next().unwrap(), "show_ascii=true");
     }
 }

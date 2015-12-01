@@ -2,9 +2,11 @@
 use std::path::{Path, PathBuf};
 use std::io;
 use std::io::{Cursor, Read, Write};
+use std::ops::DerefMut;
 use std::collections::hash_map::{HashMap, Entry};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::cmp;
+use std::mem;
 use std::marker::PhantomData;
 use typenum::uint::Unsigned;
 use typenum::consts;
@@ -20,9 +22,9 @@ const NumConfigTests: usize = 2;
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
 
 lazy_static! {
-    static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Cursor<Vec<u8>>>>>> = Mutex::new(HashMap::new());
-    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Cursor<Vec<u8>>>>>; NumConfigTests]> = {
-        let mut tmp: [Option<Arc<Mutex<Cursor<Vec<u8>>>>>; NumConfigTests] = [
+    static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>> = Mutex::new(HashMap::new());
+    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Vec<u8>>>>; NumConfigTests]> = {
+        let mut tmp: [Option<Arc<Mutex<Vec<u8>>>>; NumConfigTests] = [
             None,
             None
         ];
@@ -30,38 +32,56 @@ lazy_static! {
     };
 }
 
-pub struct MockFile(Arc<Mutex<Cursor<Vec<u8>>>>);
+pub struct MockFile(Arc<Mutex<Vec<u8>>>, u64);
 
 impl MockFile {
-    fn new(vec: Arc<Mutex<Cursor<Vec<u8>>>>) -> MockFile {
-        MockFile(vec)
+    fn new(vec: Arc<Mutex<Vec<u8>>>) -> MockFile {
+        MockFile(vec, 0)
     }
+}
+
+// A small wrapper to help with a workaround until https://github.com/rust-lang/rust/issues/30132
+// is fixed.
+macro_rules! do_with_cursor {
+    ($obj:expr, $func:ident($($arg:expr),*)) => ({
+        let mut self_ = $obj;
+        let mut vec = self_.0.lock().unwrap();
+        let mut p_vec = vec.deref_mut();
+        let mut tmp = Vec::new();
+
+        mem::swap(p_vec, &mut tmp);
+        let mut c = Cursor::new(tmp);
+        c.set_position(self_.1);
+        let ret = c.$func($($arg),*);
+        self_.1 = c.position();
+        tmp = c.into_inner();
+        mem::swap(p_vec, &mut tmp);
+        ret
+    })
 }
 
 impl Read for MockFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut vec = self.0.lock().unwrap();
-        vec.read(buf)
+        do_with_cursor!(self, read(buf))
     }
 }
 
 impl Write for MockFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut vec = self.0.lock().unwrap();
-        vec.write(buf)
+        do_with_cursor!(self, write(buf))
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let mut vec = self.0.lock().unwrap();
-        vec.flush()
+        do_with_cursor!(self, flush())
     }
 }
 
-pub type DefMockFilesystem = MockFilesystem<consts::U0>;
-
+/// A mock implementation of `Filesystem` over thread-safe buffers
 pub struct MockFilesystem<N: Unsigned = consts::U0> (
     PhantomData<N>
 );
+
+pub type DefMockFilesystem = MockFilesystem<consts::U0>;
 
 
 impl<N: Unsigned> Filesystem for MockFilesystem<N> {
@@ -93,7 +113,7 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
         if path.as_ref() == Path::new(CONFIG_PATH) {
             return Self::save_config()
         }
-        let file = Arc::new(Mutex::new(Cursor::new(Vec::new())));
+        let file = Arc::new(Mutex::new(Vec::new()));
         if let Entry::Vacant(entry) = FILES.lock().unwrap().entry(path.as_ref().into()) {
             entry.insert(file.clone());
             Ok(MockFile::new(file))
@@ -122,7 +142,7 @@ impl<N: Unsigned> MockFilesystem<N> {
             return Ok(MockFile::new(file.clone()));
         }
 
-        let file = Arc::new(Mutex::new(Cursor::new(Vec::new())));
+        let file = Arc::new(Mutex::new(Vec::new()));
         configs[N::to_usize()] = Some(file.clone());
         Ok(MockFile::new(file))
     }
@@ -138,10 +158,10 @@ impl<N: Unsigned> MockFilesystem<N> {
         let a = Arc::try_unwrap(f).unwrap();
         let m = a.lock().unwrap();
         let v = m.clone();
-        v.into_inner()
+        v
     }
 
     pub fn put<'a, P: AsRef<Path>>(path: P, v: Vec<u8>) {
-        FILES.lock().unwrap().insert(path.as_ref().into(), Arc::new(Mutex::new(Cursor::new(v))));
+        FILES.lock().unwrap().insert(path.as_ref().into(), Arc::new(Mutex::new(v)));
     }
 }
