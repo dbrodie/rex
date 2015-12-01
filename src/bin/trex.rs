@@ -22,13 +22,11 @@ use rex::config::Config;
 use rex_term::RustBoxFrontend;
 
 static USAGE: &'static str = "
-Usage: rex [options] [-C CONF... FILE]
+Usage: rex [options] [FILE]
        rex --help
 
 Options:
     -h, --help                  Show this help message
-    -c FILE, --config FILE      Use FILE as the config file
-    -C CONF                     Set a configuration option, for example: -C line_width=16
 ";
 
 #[derive(RustcDecodable, Debug)]
@@ -36,8 +34,6 @@ Options:
 struct Args {
     flag_help: bool,
     arg_FILE: Option<String>,
-    flag_config: Option<String>,
-    flag_C: Vec<String>,
 }
 
 fn exit_err<E: Error>(msg: &str, error: E) -> ! {
@@ -52,27 +48,10 @@ fn main() {
 
     if args.flag_help {
         println!("{}", USAGE.trim());
-        println!("");
-        println!("{}", Config::get_config_usage().trim());
         process::exit(0);
     }
 
-    let config_res = if let Some(config_filename) = args.flag_config {
-        Config::from_file(config_filename)
-    } else {
-        Config::open_default()
-    };
-    let mut config = config_res.unwrap_or_else(
-        |e| exit_err("Couldn't open config file", e)
-    );
-
-    for config_line in &args.flag_C {
-        config.set_from_string(config_line).unwrap_or_else(
-            |e| exit_err("Couldn't parse command line config option", e)
-        );
-    }
-
-    let mut edit: HexEdit = HexEdit::new(config);
+    let mut edit: HexEdit = HexEdit::new();
 
     if let Some(ref filename) = args.arg_FILE {
         edit.open(&Path::new(filename));

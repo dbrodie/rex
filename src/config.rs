@@ -6,11 +6,14 @@ use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
 use std::env;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error::Error;
+use std::marker::PhantomData;
 use toml;
+
+use super::filesystem::Filesystem;
 
 pub use toml::Value;
 
@@ -60,18 +63,21 @@ impl From<io::Error> for ConfigError {
 }
 
 #[derive(RustcDecodable, Debug)]
-pub struct Config {
+pub struct Config<FS: Filesystem+'static> {
     pub show_ascii: bool,
     pub show_linenum: bool,
-    pub line_width: Option<u32>
+    pub line_width: Option<u32>,
+
+    _fs: PhantomData<FS>
 }
 
-impl Default for Config {
-    fn default() -> Config {
+impl<FS: Filesystem+'static> Default for Config<FS> {
+    fn default() -> Config<FS> {
         Config {
             show_ascii: true,
             show_linenum: true,
             line_width: None,
+            _fs: PhantomData,
         }
     }
 }
@@ -121,7 +127,7 @@ macro_rules! create_toml {
     });
 }
 
-impl Config {
+impl<FS: Filesystem+'static> Config<FS> {
     pub fn get_config_usage() -> &'static str {
         "
 The supported configuration options with their default values:
@@ -153,7 +159,7 @@ properties can be set on the commandline as rex -C show_ascii=false.
         None
     }
 
-    pub fn values<'a>(&'a self) -> Values<'a> {
+    pub fn values<'a>(&'a self) -> Values<'a, FS> {
         Values {
             config: self,
             pos: 0,
@@ -173,39 +179,43 @@ properties can be set on the commandline as rex -C show_ascii=false.
         Err(ConfigError::TomlParserErrors(parser.errors))
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config<FS>, ConfigError> {
         let mut s = String::new();
-        let mut f = try!(File::open(path));
+        let mut f = try!(FS::open(path));
         try!(f.read_to_string(&mut s));
-        let mut config: Config = Default::default();
+        let mut config: Config<FS> = Default::default();
         try!(config.set_from_string(&s));
         Ok(config)
     }
 
+    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
+        let mut f = try!(FS::save(path));
+        for (key, value) in self.values() {
+            try!(writeln!(&mut f, "{}={}", key, value));
+        }
+        Ok(())
+    }
+
     fn get_config_path() -> PathBuf {
-        let mut p = PathBuf::new();
-        p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
-                |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
-            ));
+        let mut p = FS::get_config_home();
         p.join("rex").join("rex.conf")
     }
 
-    pub fn open_default() -> Result<Config, ConfigError> {
-        let config_path = Config::get_config_path();
-        match fs::metadata(config_path) {
-            Ok(_) => Config::from_file(Config::get_config_path()),
-            Err(ref err) if err.kind() == ErrorKind::NotFound => Ok(Default::default()),
-            Err(err) => Err(err.into()),
-        }
+    pub fn open_default() -> Result<Config<FS>, ConfigError> {
+        Self::from_file(Self::get_config_path())
+    }
+
+    pub fn save_default(&self) ->Result<(), ConfigError> {
+        self.to_file(Self::get_config_path())
     }
 }
 
-pub struct Values<'a> {
-    config: &'a Config,
+pub struct Values<'a, FS: Filesystem+'static> {
+    config: &'a Config<FS>,
     pos: usize,
 }
 
-impl<'a> Iterator for Values<'a> {
+impl<'a, FS:Filesystem+'static> Iterator for Values<'a, FS> {
     type Item = (&'static str, toml::Value);
 
     fn next(&mut self) -> Option<(&'static str, toml::Value)> {

@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate typenum;
 
 extern crate rex;
 

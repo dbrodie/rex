@@ -9,6 +9,7 @@ use std::path::{PathBuf, Path};
 pub trait Filesystem {
   type FSRead: Read;
   type FSWrite: Write;
+  fn get_config_home() -> PathBuf;
   fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf>;
   fn open<P: AsRef<Path>>(p: P) -> io::Result<Self::FSRead>;
   fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()>;
@@ -20,6 +21,14 @@ pub struct DefaultFilesystem;
 impl Filesystem for DefaultFilesystem {
     type FSRead = File;
     type FSWrite = File;
+
+    fn get_config_home() -> PathBuf {
+        let mut p = PathBuf::new();
+        p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
+                |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
+            ));
+        p
+    }
 
     fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
         let mut path = try!(env::current_dir());

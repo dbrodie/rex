@@ -3,7 +3,7 @@ use super::view::HexEditActions;
 use super::inputline::BaseInputLineActions;
 use super::overlay::OverlayActions;
 use super::menu::MenuActions;
-use super::config::ConfigScreenActions;
+use super::configscreen::ConfigScreenActions;
 
 pub struct Input;
 

@@ -1,4 +1,5 @@
 use std::cmp;
+use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
@@ -17,7 +18,7 @@ use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;
 use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
 use rex_utils::signals::SignalReceiver;
-use super::super::config::{Config, Value};
+use super::super::config::{Config, Value, ConfigError};
 
 use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::{Filesystem, DefaultFilesystem};
@@ -32,7 +33,7 @@ use super::inputline::{
     ConfigSetLine,
 };
 use super::overlay::OverlayText;
-use super::config::ConfigScreen;
+use super::configscreen::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
 #[derive(Debug)]
@@ -103,9 +104,9 @@ static ROOT_ENTRIES: MenuState<HexEditActions> = &[
     ]),
 ];
 
-pub struct HexEdit<FS = DefaultFilesystem> {
+pub struct HexEdit<FS: Filesystem+'static = DefaultFilesystem> {
     buffer: SplitVec,
-    config: Rc<Config>,
+    config: Rc<Config<FS>>,
     rect: Rect<isize>,
     cursor_nibble_pos: isize,
     status_log: Vec<String>,
@@ -126,8 +127,14 @@ pub struct HexEdit<FS = DefaultFilesystem> {
 }
 
 impl<FS: Filesystem+'static> HexEdit<FS> {
-    pub fn new(config: Config) -> HexEdit<FS> {
-        HexEdit {
+    pub fn new() -> HexEdit<FS> {
+        let (config, err_msg) = match Config::open_default() {
+            Ok(config) => (config, None),
+            Err(ConfigError::IoError(ref err)) if err.kind() == io::ErrorKind::NotFound =>
+                (Default::default(), None),
+            Err(err) => (Default::default(), Some(err)),
+        };
+        let mut h = HexEdit {
             buffer: SplitVec::new(),
             config: Rc::new(config),
             rect: Default::default(),
@@ -146,7 +153,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             input: Input::new(),
             signal_receiver: Rc::new(SignalReceiver::new()),
             _fs: PhantomData,
+        };
+        if let Some(err) = err_msg {
+            h.status(format!("Error opening config: {}", err));
         }
+        h
     }
 
     fn reset(&mut self) {
@@ -816,6 +827,9 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         res.unwrap_or_else(
             |e| self.status(format!("Can't set {} to {}: {}", key, val, e))
         );
+        self.config.save_default().unwrap_or_else(
+            |e| self.status(format!("Can't save config: {}", e))
+        );
     }
 
     fn start_help(&mut self) {
@@ -966,5 +980,9 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             Some(ref p) => Some(p.as_path()),
             None => None,
         }
+    }
+
+    pub fn get_config(&mut self) -> &Config<FS> {
+        &self.config
     }
 }
