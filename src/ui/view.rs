@@ -981,4 +981,8 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             None => None,
         }
     }
+
+    pub fn get_config(&mut self) -> &Config<FS> {
+        &self.config
+    }
 }

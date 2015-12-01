@@ -14,7 +14,7 @@ use rex::filesystem::Filesystem;
 use super::bytes;
 
 pub type DefaultConfig = consts::U0;
-pub type ConfigTest1 = consts::U1;
+pub type TestOpenSaveConfig = consts::U1;
 const NumConfigTests: usize = 2;
 
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";

@@ -2,6 +2,9 @@ pub mod mock_frontend;
 pub mod mock_filesystem;
 pub mod bytes;
 
+use typenum::uint::Unsigned;
+use typenum::consts;
+
 use rex::config::Config;
 use rex::ui::view::HexEdit;
 
@@ -23,11 +26,11 @@ pub fn simple_init_with_vec(vec: Vec<u8>) -> (HexEdit<mock_filesystem::MockFiles
     simple_init_helper(Some(vec))
 }
 
-fn simple_init_helper(maybe_vec: Option<Vec<u8>>) -> (HexEdit<mock_filesystem::MockFilesystem>,
-        mock_frontend::MockFrontend) {
-    mock_filesystem::DefMockFilesystem::reset();
+pub fn simple_init_helper<T: Unsigned = consts::U0>(maybe_vec: Option<Vec<u8>>) ->
+        (HexEdit<mock_filesystem::MockFilesystem<T>>, mock_frontend::MockFrontend) {
+    mock_filesystem::MockFilesystem::<T>::reset();
 
-    let mut edit: HexEdit<mock_filesystem::MockFilesystem> = HexEdit::new();
+    let mut edit: HexEdit<mock_filesystem::MockFilesystem<T>> = HexEdit::new();
     let mut frontend = mock_frontend::MockFrontend::new();
 
     if let Some(vec) = maybe_vec {
