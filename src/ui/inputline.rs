@@ -1,13 +1,8 @@
 use std::str;
-use std::io;
-use std::fs;
 use rustc_serialize::hex::FromHex;
 use std::path::{PathBuf, Path};
 use std::marker::PhantomData;
-use std::error::Error;
 use std::str::FromStr;
-
-use toml;
 
 use rex_utils;
 use rex_utils::rect::Rect;
@@ -36,12 +31,12 @@ pub trait InputLineBehavior {
     fn get_status(&self) -> Result<&str, &str> {
         Ok("")
     }
-    fn do_update(&mut self, data: &[u8]) {
+    fn do_update(&mut self, _data: &[u8]) {
 
     }
     fn do_enter(&mut self, data: &[u8]);
     fn do_cancel(&mut self);
-    fn do_shortcut(&mut self, shortcut: char) {
+    fn do_shortcut(&mut self, _shortcut: char) {
 
     }
 }

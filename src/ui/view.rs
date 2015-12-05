@@ -11,8 +11,6 @@ use std::borrow::Cow;
 use std::rc::Rc;
 use std::marker::PhantomData;
 
-use toml;
-
 use rex_utils;
 use rex_utils::split_vec::SplitVec;
 use rex_utils::rect::Rect;

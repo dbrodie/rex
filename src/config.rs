@@ -1,11 +1,7 @@
 
 use std::default::Default;
 use std::path::{Path, PathBuf};
-use std::fs;
-use std::fs::File;
 use std::io;
-use std::io::ErrorKind;
-use std::env;
 use std::io::{Read, Write};
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -128,19 +124,6 @@ macro_rules! create_toml {
 }
 
 impl<FS: Filesystem+'static> Config<FS> {
-    pub fn get_config_usage() -> &'static str {
-        "
-The supported configuration options with their default values:
-    show_ascii=true        Shows an ascii representation in the right hand side
-    show_linenum=true      Shows the byte offset in the left hand side
-    line_width=0           The number of bytes per line, 0 meaning auto-wrap
-
-The configuration can be set in the rex.conf file located in the
-$XDG_CONFIG_HOME path (usually, ~/.config/rex/rex.conf). Additionally,
-properties can be set on the commandline as rex -C show_ascii=false.
-"
-    }
-
     fn apply_toml(&mut self, mut t: toml::Table) -> Result<(), ConfigError> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
@@ -197,7 +180,7 @@ properties can be set on the commandline as rex -C show_ascii=false.
     }
 
     fn get_config_path() -> PathBuf {
-        let mut p = FS::get_config_home();
+        let p = FS::get_config_home();
         p.join("rex").join("rex.conf")
     }
 

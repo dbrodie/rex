@@ -49,11 +49,11 @@ impl Filesystem for DefaultFilesystem {
                 None => return Err(io::Error::new(io::ErrorKind::Other, "Invalid path")),
             };
 
-            let res = try!(fs::metadata(parent));
+            try!(fs::metadata(parent));
             // TODO: Add actual testing of permissions, etc...
         }
 
-        let res = try!(fs::metadata(path));
+        try!(fs::metadata(path));
         // TODO: Add actual testing of permissions, etc...
 
         Ok(())
@@ -72,7 +72,7 @@ impl Filesystem for DefaultFilesystem {
                 None => return Err(io::Error::new(io::ErrorKind::Other, "Invalid path")),
             };
 
-            let res = try!(fs::metadata(parent));
+            try!(fs::metadata(parent));
             // TODO: Add actual testing of permissions, etc...
         }
 

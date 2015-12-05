@@ -8,8 +8,6 @@ mod rex_term;
 
 use std::path::Path;
 use std::error::Error;
-use std::io;
-use std::io::Write;
 use std::process;
 use docopt::Docopt;
 
@@ -17,7 +15,6 @@ use gag::Hold;
 
 use rex::frontend::{Frontend, Event, KeyPress};
 use rex::ui::view::HexEdit;
-use rex::config::Config;
 
 use rex_term::RustBoxFrontend;
 
@@ -36,15 +33,11 @@ struct Args {
     arg_FILE: Option<String>,
 }
 
-fn exit_err<E: Error>(msg: &str, error: E) -> ! {
-    write!(&mut io::stderr(), "{}: {}", msg, error).unwrap();
-    process::exit(1);
-}
-
 fn main() {
     let args: Args = Docopt::new(USAGE).and_then(
         |d| d.help(false).decode()).unwrap_or_else(
-        |e| e.exit());
+        |e| e.exit()
+    );
 
     if args.flag_help {
         println!("{}", USAGE.trim());
