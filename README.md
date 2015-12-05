@@ -21,7 +21,7 @@ should not be used without backups. Future goals for Rex include:
 
 ## Using
 
-To be able to compile Rex, make sure you have a recent version of Rust
+To be able to compile Rex, make sure you have the latest version of Rust
 installed (stable release channel should suffice).
 To compile the latest binary:
 
