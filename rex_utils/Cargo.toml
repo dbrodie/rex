@@ -5,3 +5,4 @@ authors = ["Daniel Brodie <daniel@brodienet.com>"]
 
 [dependencies]
 itertools = ">0.3.24"
+odds = "0.2"

@@ -3,7 +3,9 @@
 use std::fmt;
 use std::ops;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+
 use itertools;
+use odds::vec::VecExt;
 
 /// A generic trait over Rust's built types.
 pub trait FromRange {
@@ -217,11 +219,7 @@ impl SplitVec {
 
         // This is needed for the mut borrow vec
         {
-            let vec = &mut self.vecs[index.outer];
-            // TODO: There has to be a better way for this range
-            for val in values.into_iter().rev() {
-                vec.insert(index.inner, *val);
-            }
+            self.vecs[index.outer].splice(index.inner..index.inner, values.into_iter().cloned());
         }
 
         self.calc_len();
