@@ -383,7 +383,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         } else {
             right_status = format!(
                 " Pos: {} Undo: {} {}",
-                self.undo_stack.len(), self.cursor_nibble_pos/2, mode);
+                self.cursor_nibble_pos/2, self.undo_stack.len(), mode);
         };
         let (x_pos, start_index) = if rb.width() >= right_status.len() {
             (rb.width() - right_status.len(), 0)
