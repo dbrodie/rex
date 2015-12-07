@@ -85,6 +85,7 @@ pub enum HexEditActions {
     HelpView,
     LogView,
     AskGoto,
+    AskGotoPtr,
     AskFind,
     AskOpen,
     AskSave,
@@ -705,6 +706,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
                 let i = self.get_line_width()*2 - 2 - pos_in_line;
                 self.move_cursor(i);
+            }
+            HexEditActions::AskGotoPtr => {
+                let dword_pos = self.cursor_nibble_pos/2;
+                let dword_value = self.buffer.dword(dword_pos as usize);
+                self.set_cursor((dword_value*2) as isize);
             }
 
             HexEditActions::Delete => self.delete_at_cursor(false),

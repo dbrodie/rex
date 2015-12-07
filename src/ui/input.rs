@@ -38,6 +38,7 @@ impl Input {
             KeyPress::Shortcut('s') => Some(HexEditActions::AskSave),
             KeyPress::Shortcut('\\') => Some(HexEditActions::StartMenu),
             KeyPress::Key(c) => Some(HexEditActions::Edit(c)),
+            KeyPress::Shortcut('d') => Some(HexEditActions::AskGotoPtr),
 
             k @ _ => {
                 println!("Unknown key {:?}", k);
