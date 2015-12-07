@@ -85,6 +85,7 @@ pub enum HexEditActions {
     HelpView,
     LogView,
     AskGoto,
+    AskGotoPtr,
     AskFind,
     AskOpen,
     AskSave,
@@ -351,7 +352,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         } else {
             right_status = format!(
                 " Pos: {} Undo: {} {}",
-                self.undo_stack.len(), self.cursor_nibble_pos/2, mode);
+                self.cursor_nibble_pos/2, self.undo_stack.len(), mode);
         };
         let (x_pos, start_index) = if rb.width() >= right_status.len() {
             (rb.width() - right_status.len(), 0)
@@ -456,7 +457,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     fn undo(&mut self) {
         if let Some(act) = self.undo_stack.pop() {
             let (begin, _) = self.edit_buffer(act, false);
-            self.set_cursor(begin * 2);
+            self.set_cursor__byte(begin);
         }
     }
 
@@ -497,7 +498,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         self.selection_start = None;
         self.edit_buffer(EditOp::Delete(del_start, del_stop), true);
-        self.set_cursor(del_start * 2);
+        self.set_cursor__byte(del_start);
     }
 
     fn write_nibble_at_cursor(&mut self, c: u8) {
@@ -560,10 +561,16 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         self.cursor_nibble_pos += pos;
         self.update_cursor()
     }
+    fn move_cursor__byte(&mut self, pos: isize) {
+        self.move_cursor(pos * 2);
+    }
 
     fn set_cursor(&mut self, pos: isize) {
         self.cursor_nibble_pos = pos;
         self.update_cursor()
+    }
+    fn set_cursor__byte(&mut self, pos: isize) {
+        self.set_cursor(pos * 2);
     }
 
     fn update_cursor(&mut self) {
@@ -600,7 +607,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
     fn goto(&mut self, pos: isize) {
         self.status(format!("Going to {:?}", pos));
-        self.set_cursor(pos * 2);
+        self.set_cursor__byte(pos);
     }
 
     fn find_buf(&mut self, needle: &[u8]) {
@@ -613,7 +620,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         if let Some(pos) = found_pos {
             self.status(format!("Found at {:?}", pos));
-            self.set_cursor((pos * 2) as isize);
+            self.set_cursor__byte(pos as isize);
         } else {
             self.status("Nothing found!");
         }
@@ -675,27 +682,27 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             // Movement
             HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
             HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
-            HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
-            HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
+            HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor__byte(-1),
+            HexEditActions::MoveRight if !self.nibble_active => self.move_cursor__byte(1),
             HexEditActions::MoveLeft => panic!("Make the case handler happy!"),
             HexEditActions::MoveRight => panic!("Make the case handler happy!"),
 
             HexEditActions::MoveUp => {
-                let t = -self.get_line_width() * 2;
-                self.move_cursor(t)
+                let t = -self.get_line_width();
+                self.move_cursor__byte(t)
             }
             HexEditActions::MoveDown => {
-                let t = self.get_line_width() * 2;
-                self.move_cursor(t)
+                let t = self.get_line_width();
+                self.move_cursor__byte(t)
             }
 
             HexEditActions::MovePageUp => {
-                let t = -(self.get_bytes_per_screen() * 2);
-                self.move_cursor(t)
+                let t = -self.get_bytes_per_screen();
+                self.move_cursor__byte(t)
             }
             HexEditActions::MovePageDown => {
-                let t = self.get_bytes_per_screen() * 2;
-                self.move_cursor(t)
+                let t = self.get_bytes_per_screen();
+                self.move_cursor__byte(t)
             }
             HexEditActions::MoveToFirstColumn => {
                 let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
@@ -705,6 +712,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
                 let i = self.get_line_width()*2 - 2 - pos_in_line;
                 self.move_cursor(i);
+            }
+            HexEditActions::AskGotoPtr => {
+                let dword_pos = self.cursor_nibble_pos/2;
+                let dword_value = self.buffer.dword(dword_pos as usize);
+                self.set_cursor__byte(dword_value as isize);
             }
 
             HexEditActions::Delete => self.delete_at_cursor(false),
@@ -730,7 +742,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 if ch.len_utf8() == 1 && ch.is_alphanumeric() {
                     // TODO: Make it printable rather than alphanumeric
                     self.write_byte_at_cursor(ch as u8);
-                    self.move_cursor(2);
+                    self.move_cursor__byte(1);
                 } else {
                     // TODO: Show error?
                 }

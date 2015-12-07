@@ -289,6 +289,14 @@ impl SplitVec {
     fn get_lengths(&self) -> Vec<usize> {
         self.vecs.iter().map(|v| v.len()).collect::<Vec<usize>>()
     }
+
+    pub fn dword(&self, offset: usize) -> u32 {
+        // XXX assumes Little Endian
+        (self[offset] as u32) +
+            ((self[offset + 1] as u32) << 8) +
+            ((self[offset + 2] as u32) << 16) +
+            ((self[offset + 3] as u32) << 24)
+    }
 }
 
 impl ops::Index<usize> for SplitVec {
