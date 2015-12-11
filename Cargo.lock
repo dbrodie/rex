@@ -8,6 +8,7 @@ dependencies = [
  "itertools 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "odds 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rex_utils 0.1.0",
  "rustbox 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",

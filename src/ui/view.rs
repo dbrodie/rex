@@ -628,7 +628,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         };
 
-        let data = self.buffer.copy_out(start as usize..stop as usize);
+        let data = self.buffer.copy_out(start as usize..(stop + 1) as usize);
         let data_len = data.len();
 
         self.clipboard = Some(data);
@@ -660,7 +660,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         // This is needed to satisfy the borrow checker
         let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
         self.edit_buffer(EditOp::Insert(cur_pos_in_bytes, data), true);
-        self.move_cursor(data_len + 1);
+        self.move_cursor(data_len * 2);
     }
 
     fn view_input(&mut self, key: KeyPress) {
