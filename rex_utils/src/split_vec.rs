@@ -268,6 +268,17 @@ impl SplitVec {
         }
     }
 
+    /// Replace values in range with the supplied values
+    pub fn splice<R: FromRange>(&mut self, range: R, values: &[u8]) -> Vec<u8> {
+        // TODO: This is terribly inefficient, will need a reimplementation
+        let (from, to) = range.from_range(self);
+
+        let res = self.move_out(from..to);
+        self.insert(from, values);
+
+        res
+    }
+
     /// Find a slice.
     pub fn find_slice(&self, needle: &[u8]) -> Option<usize> {
         self.find_slice_from(0, needle)

@@ -440,8 +440,8 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 begin_region = offset;
                 end_region = offset + buf.len() as isize;
 
-                let orig_data = self.buffer.copy_out(offset as usize..(offset as usize + buf.len()));
-                self.buffer.copy_in(offset as usize, &buf);
+                let orig_data = self.buffer.splice(offset as usize..(offset as usize + buf.len()), &buf);
+
                 if add_to_undo { self.push_undo(EditOp::Write(offset, orig_data)) }
             }
         }
