@@ -43,7 +43,6 @@ fn test_copy_paste() {
     let v : Vec<u8> = (0..0xff).into_iter().collect();
     let mut v_copy = v.clone();
 
-    // let mut result_vec = vec![];
     let (mut edit, mut frontend) = util::simple_init_with_vec(v);
 
     // Add some junk data in the begining
@@ -61,7 +60,7 @@ fn test_copy_paste() {
     assert_eq!(edit.get_position(), 55);
     v_copy.splice(50..50, vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE]);
 
-    // // Paste it in the end
+    // Paste it in the end
     frontend.run_keys(&mut edit, vec![KeyPress::PageDown, KeyPress::PageDown, KeyPress::PageDown, KeyPress::Shortcut('v')]);
     let l = v_copy.len();
     v_copy.splice(l.., vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE]);
