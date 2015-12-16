@@ -12,24 +12,6 @@ use rex::frontend::{Event, KeyPress};
 
 use util::mock_filesystem::{DefMockFilesystem, MockFilesystem};
 
-// Little helper function till Iterator.eq stabalizes
-fn iter_eq<I, J>(one: I, other: J) -> bool where
-    I: IntoIterator,
-    J: IntoIterator,
-    I::Item: PartialEq<J::Item>,
-{
-    let mut one = one.into_iter();
-    let mut other = other.into_iter();
-
-    loop {
-        match (one.next(), other.next()) {
-            (None, None) => return true,
-            (None, _) | (_, None) => return false,
-            (Some(x), Some(y)) => if x != y { return false },
-        }
-    }
-}
-
 #[test]
 fn test_basic_open() {
     // Create a vec with a marker in the end
@@ -74,5 +56,5 @@ fn test_basic_save() {
     frontend.run_keys(pedit, vec![KeyPress::Enter]);
 
     // Make sure they are equal
-    assert!(iter_eq(v.iter(), DefMockFilesystem::get_inner("test_basic_save").iter()));
+    util::assert_iter_eq(v.iter(), DefMockFilesystem::get_inner("test_basic_save").iter());
 }

@@ -8,7 +8,6 @@ extern crate rex;
 mod util;
 
 use std::iter;
-use std::fmt::Debug;
 use std::path::Path;
 use std::convert::{From, Into};
 use std::io::{Cursor, Write, Seek, SeekFrom};
@@ -18,24 +17,6 @@ use odds::vec::VecExt;
 use rex::frontend::{Event, KeyPress};
 
 use util::mock_filesystem::{DefMockFilesystem, MockFilesystem};
-
-fn assert_iter_eq<I, J>(one: I, other: J) where
-    I: IntoIterator,
-    J: IntoIterator,
-    I::Item: PartialEq<J::Item> + Debug,
-    J::Item: Debug,
-{
-    let mut one = one.into_iter();
-    let mut other = other.into_iter();
-
-    loop {
-        match (one.next(), other.next()) {
-            (None, None) => return,
-            (Some(x), Some(y)) => assert_eq!(x, y),
-            (a @ _, b @ _) => panic!("left is {:?}, right is {:?}", a, b)
-        }
-    }
-}
 
 #[test]
 /// Test that basic copy/paste works
@@ -66,6 +47,5 @@ fn test_copy_paste() {
     v_copy.splice(l.., vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE]);
 
     edit.save(Path::new("test_copy_paste"));
-    println!("result_vec = {:?}", v_copy);
-    assert_iter_eq(v_copy.iter(), DefMockFilesystem::get_inner("test_copy_paste").iter());
+    util::assert_iter_eq(v_copy.iter(), DefMockFilesystem::get_inner("test_copy_paste").iter());
 }
