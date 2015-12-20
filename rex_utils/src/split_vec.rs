@@ -3,6 +3,7 @@
 use std::fmt;
 use std::ops;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use std::cmp;
 
 use itertools;
 use odds::vec::VecExt;
@@ -272,8 +273,16 @@ impl SplitVec {
     pub fn splice<R: FromRange>(&mut self, range: R, values: &[u8]) -> Vec<u8> {
         // TODO: This is terribly inefficient, will need a reimplementation
         let (from, to) = range.from_range(self);
+        let res;
 
-        let res = self.move_out(from..to);
+        // Make sure that when we pull data out for the splice, we don't go over the end
+        if from < self.len() {
+            let move_end = cmp::min(self.len(), to);
+            res = self.move_out(from..move_end);
+        } else {
+            res = vec![];
+        }
+
         self.insert(from, values);
 
         res
