@@ -673,7 +673,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let data_len = data.len() as isize;
         // This is needed to satisfy the borrow checker
         let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
-        self.edit_buffer(EditOperation::insert(cur_pos_in_bytes as usize, data), true);
+        if self.insert_mode {
+            self.edit_buffer(EditOperation::insert(cur_pos_in_bytes as usize, data), true);
+        } else {
+            self.edit_buffer(EditOperation::write(cur_pos_in_bytes as usize, data), true);
+        }
         self.move_cursor(data_len * 2);
     }
 
