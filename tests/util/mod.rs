@@ -18,13 +18,15 @@ pub fn assert_iter_eq<I, J>(one: I, other: J) where
 {
     let mut one = one.into_iter();
     let mut other = other.into_iter();
+    let mut i = 0;
 
     loop {
         match (one.next(), other.next()) {
             (None, None) => return,
-            (Some(x), Some(y)) => assert_eq!(x, y),
-            (a @ _, b @ _) => panic!("left is {:?}, right is {:?}", a, b)
+            (Some(x), Some(y)) => assert!(x == y, "left is {:?}, right is {:?}, at index {:?}", x, y, i),
+            (a @ _, b @ _) => panic!("left is {:?}, right is {:?}, at index {:?}", a, b, i)
         }
+        i += 1;
     }
 }
 
