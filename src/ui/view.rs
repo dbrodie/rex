@@ -2,6 +2,7 @@ use std::cmp;
 use std::io;
 use std::io::Read;
 use std::io::Write;
+use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
 use std::iter;
@@ -34,11 +35,42 @@ use super::overlay::OverlayText;
 use super::configscreen::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
-#[derive(Debug)]
-enum EditOp {
-    Delete(isize, isize),
-    Insert(isize, Vec<u8>),
-    Write(isize, Vec<u8>),
+/// Represents an edit operation done in a buffer, such as paste, insertion and deletion.
+/// Undo operations are also saved as EditOperations that revert the original operation.
+#[derive(Debug, Clone)]
+struct EditOperation {
+    /// The range over which the operation happens
+    range: Range<usize>,
+    /// The data that replaced the supplied range
+    data: Vec<u8>,
+    /// A short description of the type of operation for logging
+    description: &'static str,
+}
+
+impl EditOperation {
+    fn delete(range: Range<usize>) -> EditOperation {
+        EditOperation {
+            range: range,
+            data : vec![],
+            description: "Delete",
+        }
+    }
+
+    fn insert(offset: usize, data: Vec<u8>) -> EditOperation {
+        EditOperation {
+            range: offset..offset,
+            data: data,
+            description: "Insert",
+        }
+    }
+
+    fn write(offset: usize, data: Vec<u8>) -> EditOperation {
+        EditOperation {
+            range: offset..(offset + data.len()),
+            data: data,
+            description: "Overwrite",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -115,7 +147,7 @@ pub struct HexEdit<FS: Filesystem+'static = DefaultFilesystem> {
     selection_start: Option<isize>,
     insert_mode: bool,
     input: Input,
-    undo_stack: Vec<EditOp>,
+    undo_stack: Vec<EditOperation>,
     child_widget: Option<(Box<Widget>, RelativeRect<isize>)>,
     cur_path: Option<PathBuf>,
     clipboard: Option<Vec<u8>>,
@@ -415,48 +447,30 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         }
     }
 
-    fn edit_buffer(&mut self, act: EditOp, add_to_undo: bool) -> (isize, isize) {
-        let begin_region: isize;
-        let end_region: isize;
-
-        match act {
-            EditOp::Insert(offset, buf) => {
-                begin_region = offset;
-                end_region = offset + buf.len() as isize;
-
-                self.buffer.insert(offset as usize, &buf);
-                if add_to_undo {
-                    self.push_undo(EditOp::Delete(offset, offset + buf.len() as isize))
-                }
-            }
-            EditOp::Delete(offset, end) => {
-                begin_region = offset;
-                end_region = end;
-
-                let res = self.buffer.move_out(offset as usize..end as usize);
-                if add_to_undo { self.push_undo(EditOp::Insert(offset, res)) }
-            }
-            EditOp::Write(offset, buf) => {
-                begin_region = offset;
-                end_region = offset + buf.len() as isize;
-
-                let orig_data = self.buffer.copy_out(offset as usize..(offset as usize + buf.len()));
-                self.buffer.copy_in(offset as usize, &buf);
-                if add_to_undo { self.push_undo(EditOp::Write(offset, orig_data)) }
-            }
+    /// We pretty much apply the data over the range as a splice, except for when an operation
+    /// exceeds the end of the vector, and then we will cap the range to the length of the vector
+    fn edit_buffer(&mut self, operation: EditOperation, add_to_undo: bool) {
+        let begin = operation.range.start;
+        let orig_data = self.buffer.splice(operation.range, &operation.data);
+        if add_to_undo {
+            let undo_operation = EditOperation {
+                range: begin..operation.data.len(),
+                data: orig_data,
+                description: operation.description,
+            };
+            self.push_undo(undo_operation);
         }
-
-        (begin_region, end_region)
     }
 
-    fn push_undo(&mut self, act: EditOp) {
-        self.undo_stack.push(act);
+    fn push_undo(&mut self, operation: EditOperation) {
+        self.undo_stack.push(operation);
     }
 
     fn undo(&mut self) {
-        if let Some(act) = self.undo_stack.pop() {
-            let (begin, _) = self.edit_buffer(act, false);
-            self.set_cursor(begin * 2);
+        if let Some(operation) = self.undo_stack.pop() {
+            let begin = operation.range.start;
+            self.edit_buffer(operation, false);
+            self.set_cursor(begin as isize * 2);
         }
     }
 
@@ -496,7 +510,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         }
 
         self.selection_start = None;
-        self.edit_buffer(EditOp::Delete(del_start, del_stop), true);
+        self.edit_buffer(EditOperation::delete(del_start as usize..del_stop as usize), true);
         self.set_cursor(del_start * 2);
     }
 
@@ -523,7 +537,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         };
 
         let byte_offset = self.cursor_nibble_pos / 2;
-        self.edit_buffer(EditOp::Write(byte_offset, vec![byte]), true);
+        self.edit_buffer(EditOperation::write(byte_offset as usize, vec![byte]), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
@@ -534,7 +548,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         }
 
         let pos_div2 = self.cursor_nibble_pos / 2;
-        self.edit_buffer(EditOp::Insert(pos_div2, vec![c * 16]), true);
+        self.edit_buffer(EditOperation::insert(pos_div2 as usize, vec![c * 16]), true);
     }
 
     fn toggle_insert_mode(&mut self) {
@@ -550,9 +564,9 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         let byte_offset = self.cursor_nibble_pos / 2;
         if self.insert_mode || self.cursor_at_end() {
-            self.edit_buffer(EditOp::Insert(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOperation::insert(byte_offset as usize, vec![c]), true);
         } else {
-            self.edit_buffer(EditOp::Write(byte_offset, vec![c]), true);
+            self.edit_buffer(EditOperation::write(byte_offset as usize, vec![c]), true);
         }
     }
 
@@ -628,7 +642,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             }
         };
 
-        let data = self.buffer.copy_out(start as usize..stop as usize);
+        let data = self.buffer.copy_out(start as usize..(stop + 1) as usize);
         let data_len = data.len();
 
         self.clipboard = Some(data);
@@ -659,8 +673,12 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let data_len = data.len() as isize;
         // This is needed to satisfy the borrow checker
         let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
-        self.edit_buffer(EditOp::Insert(cur_pos_in_bytes, data), true);
-        self.move_cursor(data_len + 1);
+        if self.insert_mode {
+            self.edit_buffer(EditOperation::insert(cur_pos_in_bytes as usize, data), true);
+        } else {
+            self.edit_buffer(EditOperation::write(cur_pos_in_bytes as usize, data), true);
+        }
+        self.move_cursor(data_len * 2);
     }
 
     fn view_input(&mut self, key: KeyPress) {

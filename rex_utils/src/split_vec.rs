@@ -3,7 +3,10 @@
 use std::fmt;
 use std::ops;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use std::cmp;
+
 use itertools;
+use odds::vec::VecExt;
 
 /// A generic trait over Rust's built types.
 pub trait FromRange {
@@ -217,11 +220,7 @@ impl SplitVec {
 
         // This is needed for the mut borrow vec
         {
-            let vec = &mut self.vecs[index.outer];
-            // TODO: There has to be a better way for this range
-            for val in values.into_iter().rev() {
-                vec.insert(index.inner, *val);
-            }
+            self.vecs[index.outer].splice(index.inner..index.inner, values.into_iter().cloned());
         }
 
         self.calc_len();
@@ -268,6 +267,25 @@ impl SplitVec {
         for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
             *d = s.clone();
         }
+    }
+
+    /// Replace values in range with the supplied values
+    pub fn splice<R: FromRange>(&mut self, range: R, values: &[u8]) -> Vec<u8> {
+        // TODO: This is terribly inefficient, will need a reimplementation
+        let (from, to) = range.from_range(self);
+        let res;
+
+        // Make sure that when we pull data out for the splice, we don't go over the end
+        if from < self.len() {
+            let move_end = cmp::min(self.len(), to);
+            res = self.move_out(from..move_end);
+        } else {
+            res = vec![];
+        }
+
+        self.insert(from, values);
+
+        res
     }
 
     /// Find a slice.

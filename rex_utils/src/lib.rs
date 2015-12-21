@@ -3,6 +3,7 @@
 //! This allows us to have proper unit tests to the crate (since unit tests for binary crates in
 //! rust are not well supported).
 extern crate itertools;
+extern crate odds;
 
 use std::iter;
 use std::char;

@@ -8,6 +8,7 @@ dependencies = [
  "itertools 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "odds 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rex_utils 0.1.0",
  "rustbox 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -115,6 +116,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "odds"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "unreachable 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rand"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -144,6 +153,7 @@ name = "rex_utils"
 version = "0.1.0"
 dependencies = [
  "itertools 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "odds 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -206,6 +216,19 @@ dependencies = [
 [[package]]
 name = "typenum"
 version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "unreachable"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "void 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "void"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
