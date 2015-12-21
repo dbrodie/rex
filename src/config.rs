@@ -63,6 +63,7 @@ pub struct Config<FS: Filesystem+'static> {
     pub show_ascii: bool,
     pub show_linenum: bool,
     pub line_width: Option<u32>,
+    pub group_bytes: i64,
 
     _fs: PhantomData<FS>
 }
@@ -73,6 +74,7 @@ impl<FS: Filesystem+'static> Default for Config<FS> {
             show_ascii: true,
             show_linenum: true,
             line_width: None,
+            group_bytes: 1,
             _fs: PhantomData,
         }
     }
@@ -128,6 +130,7 @@ impl<FS: Filesystem+'static> Config<FS> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
         decode_toml!(self, line_width, t, Integer, |i| if i > 0 { Some(i as u32) } else { None });
+        decode_toml!(self, group_bytes, t, Integer);
         if let Some((key, _)) = t.into_iter().next() {
             Err(ConfigError::InvalidFieldName(key))
         } else {
@@ -139,6 +142,7 @@ impl<FS: Filesystem+'static> Config<FS> {
         create_toml!(self, p, show_ascii, Boolean);
         create_toml!(self, p, show_linenum, Boolean);
         create_toml!(self, p, line_width, Integer, |opt_i| if let Some(i) = opt_i { i as i64 } else { 0 });
+        create_toml!(self, p, group_bytes, Integer);
         None
     }
 

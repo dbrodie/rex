@@ -223,12 +223,10 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn get_bytes_per_row(&self) -> isize {
-        // This is the number of cells on the screen that are used for each byte.
-        // For the nibble view, we need 3 (1 for each nibble and 1 for the spacing). For
-        // the ascii view, if it is shown, we need another one.
-        let cells_per_byte = if self.config.show_ascii { 4 } else { 3 };
-
-        (self.rect.width - self.get_linenumber_width()) / cells_per_byte
+        let ascii_len = if self.config.show_ascii { 1 } else { 0 };
+        let byte_width = (self.rect.width - self.get_linenumber_width());
+        let cells_per_byte = byte_width / (self.config.group_bytes as isize * (2 + ascii_len) + 1) * self.config.group_bytes as isize;
+        cells_per_byte
     }
 
     fn get_bytes_per_screen(&self) -> isize {
@@ -250,7 +248,8 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     fn draw_line(&self, rb: &mut Frontend, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
-        let byte_view_start = nibble_view_start + self.get_bytes_per_row() as usize * 3;
+        let bpr = self.get_bytes_per_row() as usize;
+        let byte_view_start = nibble_view_start + bpr * 2 + bpr / self.config.group_bytes as usize;
 
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
@@ -273,7 +272,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 (' ', ' ')
             };
 
-            let nibble_view_column = nibble_view_start + (row_offset * 3);
+            let nibble_view_column = nibble_view_start + (row_offset * 2) + row_offset / (self.config.group_bytes as usize);
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
