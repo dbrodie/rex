@@ -25,8 +25,8 @@ fn test_undo_insert() {
     frontend.run_keys(&mut edit, vec![KeyPress::Shortcut('z'), KeyPress::Shortcut('z')]);
     assert_eq!(edit.get_position(), 0);
 
-    edit.save(Path::new("test_copy_paste"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_copy_paste").iter());
+    edit.save(Path::new("test_undo_insert"));
+    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_undo_insert").iter());
 }
 
 #[test]
@@ -41,6 +41,6 @@ fn test_undo_delete() {
     frontend.run_keys(&mut edit, vec![KeyPress::Shortcut('z')]);
     assert_eq!(edit.get_position(), 0);
 
-    edit.save(Path::new("test_copy_paste"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_copy_paste").iter());
+    edit.save(Path::new("test_undo_delete"));
+    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_undo_delete").iter());
 }
