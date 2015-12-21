@@ -46,7 +46,7 @@ impl Display for ConfigError {
             ConfigError::IoError(ref e) => write!(f, "IO Error: {}", e),
             ConfigError::TomlParserErrors(ref v) => write!(f, "Parser Error ({} total): {}",
                     v.len(), v[0]),
-            ConfigError::InvalidFieldName(ref s) => write!(f, "Invalid feild name: {}", s),
+            ConfigError::InvalidFieldName(ref s) => write!(f, "Invalid field name: {}", s),
             ConfigError::InvalidFieldType(expected, ref got) => write!(f, "Expected type {} got {}", expected, got),
         }
     }
