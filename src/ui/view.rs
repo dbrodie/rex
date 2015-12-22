@@ -35,6 +35,31 @@ use super::overlay::OverlayText;
 use super::configscreen::ConfigScreen;
 use super::menu::{OverlayMenu, MenuState, MenuEntry};
 
+
+custom_derive! {
+    /// An offset into the buffer in nibbles.
+    /// All offsets into the buffer are kept as bytes. In the few cases where it is easier to keep
+    /// it as an offset in nibbles, we will use this type to differentiate.
+    #[derive(NewtypeAdd, NewtypeSub, Clone, Copy, Debug, PartialEq, Eq)]
+    struct Nibble(isize);
+}
+
+impl Nibble {
+    fn from_bytes(byte_pos: isize) -> Nibble {
+        Nibble(byte_pos * 2)
+    }
+
+    fn to_bytes(&self) -> isize {
+        self.0 / 2
+    }
+
+    /// Return the low bit of the nibble offset, meaning which nibble the offset is on in the byte
+    /// offset.
+    fn nibble_bit(&self) -> u8 {
+        (self.0 & 1) as u8
+    }
+}
+
 /// Represents an edit operation done in a buffer, such as paste, insertion and deletion.
 /// Undo operations are also saved as EditOperations that revert the original operation.
 #[derive(Debug, Clone)]
@@ -138,7 +163,8 @@ pub struct HexEdit<FS: Filesystem+'static = DefaultFilesystem> {
     buffer: SplitVec,
     config: Rc<Config<FS>>,
     rect: Rect<isize>,
-    cursor_nibble_pos: isize,
+    /// The cursor position in nibbles
+    cursor_nibble_pos: Nibble,
     status_log: Vec<String>,
     show_last_status: bool,
     data_offset: isize,
@@ -168,7 +194,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             buffer: SplitVec::new(),
             config: Rc::new(config),
             rect: Default::default(),
-            cursor_nibble_pos: 0,
+            cursor_nibble_pos: Nibble(0),
             data_offset: 0,
             row_offset: 0,
             status_log: vec!["Press C-/ for help".to_string()],
@@ -191,7 +217,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn reset(&mut self) {
-        self.cursor_nibble_pos = 0;
+        self.cursor_nibble_pos = Nibble(0);
         self.data_offset = 0;
         self.nibble_active = true;
         self.selection_start = None;
@@ -257,11 +283,11 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let mut at_current_row = false;
 
         for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate().take(self.get_bytes_per_row() as usize) {
-            let at_current_byte = byte_pos as isize == (self.cursor_nibble_pos / 2);
+            let at_current_byte = (byte_pos as isize == self.cursor_nibble_pos.to_bytes());
             at_current_row = at_current_row || at_current_byte;
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                rex_utils::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos / 2)
+                rex_utils::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos.to_bytes())
             } else {
                 false
             };
@@ -290,7 +316,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
             }
             if self.nibble_active && self.child_widget.is_none() && at_current_byte {
-                rb.set_cursor(nibble_view_column as isize + (self.cursor_nibble_pos & 1),
+                rb.set_cursor(nibble_view_column as isize + self.cursor_nibble_pos.nibble_bit() as isize,
                               row as isize);
             };
 
@@ -376,14 +402,14 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         let right_status;
         if let Some(selection_start) = self.selection_start {
-            let size = (self.cursor_nibble_pos/2 - selection_start).abs();
+            let size = (self.cursor_nibble_pos.to_bytes() - selection_start).abs();
             right_status = format!(
                 " Start: {} Size: {} Pos: {} {}",
-                selection_start, size, self.cursor_nibble_pos/2, mode);
+                selection_start, size, self.cursor_nibble_pos.to_bytes(), mode);
         } else {
             right_status = format!(
                 " Pos: {} Undo: {} {}",
-                self.cursor_nibble_pos/2, self.undo_stack.len(), mode);
+                self.cursor_nibble_pos.to_bytes(), self.undo_stack.len(), mode);
         };
         let (x_pos, start_index) = if rb.width() >= right_status.len() {
             (rb.width() - right_status.len(), 0)
@@ -470,12 +496,12 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         if let Some(operation) = self.undo_stack.pop() {
             let begin = operation.range.start;
             self.edit_buffer(operation, false);
-            self.set_cursor(begin as isize * 2);
+            self.set_cursor(Nibble::from_bytes(begin as isize));
         }
     }
 
     fn cursor_at_end(&self) -> bool {
-        self.cursor_nibble_pos == (self.buffer.len()*2) as isize
+        self.cursor_nibble_pos == Nibble::from_bytes(self.buffer.len() as isize)
     }
 
     fn delete_at_cursor(&mut self, with_bksp: bool) {
@@ -485,17 +511,18 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             Some(selection_pos_tag) => selection_pos_tag,
             None => {
                 if with_bksp {
-                    if cursor_nibble_pos < 2 {
+                    // If we are at the begining of the document, there isn't what to backspace into
+                    if cursor_nibble_pos.to_bytes() < 1 {
                         return;
                     }
-                    cursor_nibble_pos -= 2;
+                    cursor_nibble_pos = cursor_nibble_pos - Nibble::from_bytes(1);
                 }
-                cursor_nibble_pos / 2
+                cursor_nibble_pos.to_bytes()
             }
         };
 
-        let del_start = cmp::min(selection_pos, cursor_nibble_pos / 2);
-        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos / 2) + 1;
+        let del_start = cmp::min(selection_pos, cursor_nibble_pos.to_bytes());
+        let mut del_stop = cmp::max(selection_pos, cursor_nibble_pos.to_bytes()) + 1;
 
         if del_stop > self.buffer.len() as isize {
             del_stop -= 1;
@@ -511,7 +538,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         self.selection_start = None;
         self.edit_buffer(EditOperation::delete(del_start as usize..del_stop as usize), true);
-        self.set_cursor(del_start * 2);
+        self.set_cursor(Nibble::from_bytes(del_start));
     }
 
     fn write_nibble_at_cursor(&mut self, c: u8) {
@@ -528,32 +555,31 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn set_nibble_at_cursor(&mut self, c: u8) {
-        let mut byte = self.buffer[(self.cursor_nibble_pos / 2) as usize];
+        let mut byte = self.buffer[self.cursor_nibble_pos.to_bytes() as usize];
 
-        byte = match self.cursor_nibble_pos & 1 {
+        byte = match self.cursor_nibble_pos.nibble_bit() {
             0 => (byte & 0x0f) + c * 16,
             1 => (byte & 0xf0) + c,
             _ => 0xff,
         };
 
-        let byte_offset = self.cursor_nibble_pos / 2;
+        let byte_offset = self.cursor_nibble_pos.to_bytes();
         self.edit_buffer(EditOperation::write(byte_offset as usize, vec![byte]), true);
     }
 
     fn insert_nibble_at_cursor(&mut self, c: u8) {
         // If we are at half byte, we still overwrite
-        if self.cursor_nibble_pos & 1 == 1 {
+        if self.cursor_nibble_pos.nibble_bit() == 1 {
             self.set_nibble_at_cursor(c);
             return
         }
 
-        let pos_div2 = self.cursor_nibble_pos / 2;
+        let pos_div2 = self.cursor_nibble_pos.to_bytes();
         self.edit_buffer(EditOperation::insert(pos_div2 as usize, vec![c * 16]), true);
     }
 
     fn toggle_insert_mode(&mut self) {
         self.insert_mode = !self.insert_mode;
-        self.move_cursor(0);
     }
 
     fn write_byte_at_cursor(&mut self, c: u8) {
@@ -562,7 +588,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             self.delete_at_cursor(false);
         }
 
-        let byte_offset = self.cursor_nibble_pos / 2;
+        let byte_offset = self.cursor_nibble_pos.to_bytes();
         if self.insert_mode || self.cursor_at_end() {
             self.edit_buffer(EditOperation::insert(byte_offset as usize, vec![c]), true);
         } else {
@@ -570,20 +596,20 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         }
     }
 
-    fn move_cursor(&mut self, pos: isize) {
-        self.cursor_nibble_pos += pos;
+    fn move_cursor(&mut self, pos: Nibble) {
+        self.cursor_nibble_pos = self.cursor_nibble_pos + pos;
         self.update_cursor()
     }
 
-    fn set_cursor(&mut self, pos: isize) {
+    fn set_cursor(&mut self, pos: Nibble) {
         self.cursor_nibble_pos = pos;
         self.update_cursor()
     }
 
     fn update_cursor(&mut self) {
-        self.cursor_nibble_pos = cmp::max(self.cursor_nibble_pos, 0);
-        self.cursor_nibble_pos = cmp::min(self.cursor_nibble_pos, (self.buffer.len()*2) as isize);
-        let cursor_byte_pos = self.cursor_nibble_pos / 2;
+        self.cursor_nibble_pos = Nibble(cmp::max(self.cursor_nibble_pos.0, 0));
+        self.cursor_nibble_pos = Nibble(cmp::min(self.cursor_nibble_pos.0, Nibble::from_bytes(self.buffer.len()as isize).0));
+        let cursor_byte_pos = self.cursor_nibble_pos.to_bytes();
         let cursor_row_offset = cursor_byte_pos % self.get_line_width();
 
         // If the cursor moves above or below the view, scroll it
@@ -608,17 +634,17 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     fn toggle_selection(&mut self) {
         match self.selection_start {
             Some(_) => self.selection_start = None,
-            None => self.selection_start = Some(self.cursor_nibble_pos / 2)
+            None => self.selection_start = Some(self.cursor_nibble_pos.to_bytes())
         }
     }
 
     fn goto(&mut self, pos: isize) {
         self.status(format!("Going to {:?}", pos));
-        self.set_cursor(pos * 2);
+        self.set_cursor(Nibble::from_bytes(pos));
     }
 
     fn find_buf(&mut self, needle: &[u8]) {
-        let found_pos = match self.buffer.find_slice_from((self.cursor_nibble_pos / 2) as usize, needle) {
+        let found_pos = match self.buffer.find_slice_from(self.cursor_nibble_pos.to_bytes() as usize, needle) {
             None => {
                 self.buffer.find_slice_from(0, needle)
             }
@@ -627,7 +653,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         if let Some(pos) = found_pos {
             self.status(format!("Found at {:?}", pos));
-            self.set_cursor((pos * 2) as isize);
+            self.set_cursor(Nibble::from_bytes(pos as isize));
         } else {
             self.status("Nothing found!");
         }
@@ -637,8 +663,8 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let (start, stop) = match self.selection_start {
             None => { return None; },
             Some(selection_pos) => {
-                (cmp::min(selection_pos, self.cursor_nibble_pos / 2),
-                 cmp::max(selection_pos, self.cursor_nibble_pos / 2))
+                (cmp::min(selection_pos, self.cursor_nibble_pos.to_bytes()),
+                 cmp::max(selection_pos, self.cursor_nibble_pos.to_bytes()))
             }
         };
 
@@ -672,13 +698,13 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         let data_len = data.len() as isize;
         // This is needed to satisfy the borrow checker
-        let cur_pos_in_bytes = self.cursor_nibble_pos / 2;
+        let cur_pos_in_bytes = self.cursor_nibble_pos.to_bytes();
         if self.insert_mode {
             self.edit_buffer(EditOperation::insert(cur_pos_in_bytes as usize, data), true);
         } else {
             self.edit_buffer(EditOperation::write(cur_pos_in_bytes as usize, data), true);
         }
-        self.move_cursor(data_len * 2);
+        self.move_cursor(Nibble::from_bytes(data_len));
     }
 
     fn view_input(&mut self, key: KeyPress) {
@@ -691,38 +717,36 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         self.clear_status();
         match action {
             // Movement
-            HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(-1),
-            HexEditActions::MoveRight if self.nibble_active => self.move_cursor(1),
-            HexEditActions::MoveLeft if !self.nibble_active => self.move_cursor(-2),
-            HexEditActions::MoveRight if !self.nibble_active => self.move_cursor(2),
-            HexEditActions::MoveLeft => panic!("Make the case handler happy!"),
-            HexEditActions::MoveRight => panic!("Make the case handler happy!"),
+            HexEditActions::MoveLeft if self.nibble_active => self.move_cursor(Nibble(-1)),
+            HexEditActions::MoveRight if self.nibble_active => self.move_cursor(Nibble(1)),
+            HexEditActions::MoveLeft => self.move_cursor(Nibble::from_bytes(-1)),
+            HexEditActions::MoveRight => self.move_cursor(Nibble::from_bytes(1)),
 
             HexEditActions::MoveUp => {
-                let t = -self.get_line_width() * 2;
-                self.move_cursor(t)
+                let t = -self.get_line_width();
+                self.move_cursor(Nibble::from_bytes(t))
             }
             HexEditActions::MoveDown => {
-                let t = self.get_line_width() * 2;
-                self.move_cursor(t)
+                let t = self.get_line_width();
+                self.move_cursor(Nibble::from_bytes(t))
             }
 
             HexEditActions::MovePageUp => {
-                let t = -(self.get_bytes_per_screen() * 2);
-                self.move_cursor(t)
+                let t = -self.get_bytes_per_screen();
+                self.move_cursor(Nibble::from_bytes(t))
             }
             HexEditActions::MovePageDown => {
-                let t = self.get_bytes_per_screen() * 2;
-                self.move_cursor(t)
+                let t = self.get_bytes_per_screen();
+                self.move_cursor(Nibble::from_bytes(t))
             }
             HexEditActions::MoveToFirstColumn => {
-                let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
-                self.move_cursor(-pos_in_line)
+                let pos_in_line = self.cursor_nibble_pos.to_bytes() % self.get_line_width();
+                self.move_cursor(Nibble::from_bytes(-pos_in_line))
             }
             HexEditActions::MoveToLastColumn => {
-                let pos_in_line = self.cursor_nibble_pos % (self.get_line_width()*2);
-                let i = self.get_line_width()*2 - 2 - pos_in_line;
-                self.move_cursor(i);
+                let pos_in_line = self.cursor_nibble_pos.to_bytes() % self.get_line_width();
+                let i = self.get_line_width() - 1 - pos_in_line;
+                self.move_cursor(Nibble::from_bytes(i));
             }
 
             HexEditActions::Delete => self.delete_at_cursor(false),
@@ -737,24 +761,22 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             HexEditActions::Edit(ch) if self.nibble_active => {
                 if let Some(val) = ch.to_digit(16) {
                     self.write_nibble_at_cursor(val as u8);
-                    self.move_cursor(1);
+                    self.move_cursor(Nibble(1));
                 } else {
                     // TODO: Show error?
                 }
             },
 
             // Ascii edit for byte view
-            HexEditActions::Edit(ch) if !self.nibble_active => {
+            HexEditActions::Edit(ch) => {
                 if ch.len_utf8() == 1 && ch.is_alphanumeric() {
                     // TODO: Make it printable rather than alphanumeric
                     self.write_byte_at_cursor(ch as u8);
-                    self.move_cursor(2);
+                    self.move_cursor(Nibble::from_bytes(1));
                 } else {
                     // TODO: Show error?
                 }
             }
-
-            HexEditActions::Edit(_) => panic!("Make the case handler happy!"),
 
             HexEditActions::SwitchView => {
                 self.nibble_active = !self.nibble_active;
@@ -988,7 +1010,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     pub fn get_position(&mut self) -> isize {
-        self.cursor_nibble_pos / 2
+        self.cursor_nibble_pos.to_bytes()
     }
 
     pub fn get_file_path(&mut self) -> Option<&Path> {

@@ -88,9 +88,13 @@ fn test_edit_delete_and_bksp() {
     // Delete some chars in the begining (where the bksp key should be a no-op)
     frontend.run_keys(&mut edit, vec![KeyPress::Backspace, KeyPress::Backspace]);
     assert_eq!(edit.get_position(), 0);
+    // And actually delete some chars
+    frontend.run_keys(&mut edit, vec![KeyPress::Right, KeyPress:: Right, KeyPress::Right, KeyPress:: Right,
+        KeyPress::Backspace, KeyPress::Backspace]);
+    assert_eq!(edit.get_position(), 0);
     frontend.run_keys(&mut edit, vec![KeyPress::Delete, KeyPress::Delete]);
     assert_eq!(edit.get_position(), 0);
-    result.splice(0..2, vec![]);
+    result.splice(0..4, vec![]);
 
     // Delete some chars in the middle
     frontend.run_keys(&mut edit, vec![KeyPress::Shortcut('g')]);
@@ -107,10 +111,15 @@ fn test_edit_delete_and_bksp() {
     frontend.run_keys(&mut edit, vec![KeyPress::PageDown, KeyPress::PageDown, KeyPress::PageDown]);
     frontend.run_keys(&mut edit, vec![KeyPress::Delete, KeyPress::Delete]);
     assert_eq!(edit.get_position(), len as isize);
+    // And actually delete some chars
+    frontend.run_keys(&mut edit, vec![KeyPress::Left, KeyPress::Left, KeyPress::Left, KeyPress::Left,
+        KeyPress::Delete, KeyPress::Delete]);
     frontend.run_keys(&mut edit, vec![KeyPress::Backspace, KeyPress::Backspace]);
-    result.splice((len-2).., vec![]);
+    result.splice((len-4).., vec![]);
     len = result.len();
     assert_eq!(edit.get_position(), len as isize);
+
+    println!("result = {:?}", result);
 
     edit.save(Path::new("test_edit_delete_and_bksp"));
     util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_edit_delete_and_bksp").iter());
