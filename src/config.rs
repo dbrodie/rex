@@ -13,12 +13,19 @@ use super::filesystem::Filesystem;
 
 pub use toml::Value;
 
+/// An error reading, writing, or parsing configuration data
 #[derive(Debug)]
 pub enum ConfigError {
+    /// An IO error occured during reading/writing the config data
     IoError(io::Error),
+    /// A basic parsing error
     TomlParserErrors(Vec<toml::ParserError>),
+    /// The field name supplied is invalid
     InvalidFieldName(String),
+    /// The type of value for the field name does not match
     InvalidFieldType(& 'static str, String),
+    /// The value provided for the field name is invalid
+    InvalidFieldValue(& 'static str),
 }
 
 impl Error for ConfigError {
@@ -28,6 +35,7 @@ impl Error for ConfigError {
             ConfigError::TomlParserErrors(ref v) => v[0].description(),
             ConfigError::InvalidFieldName(_) => "Invalid field name",
             ConfigError::InvalidFieldType(_, _) => "Invalid field type",
+            ConfigError::InvalidFieldValue(_) => "Invalid field value",
         }
     }
 
@@ -48,6 +56,7 @@ impl Display for ConfigError {
                     v.len(), v[0]),
             ConfigError::InvalidFieldName(ref s) => write!(f, "Invalid feild name: {}", s),
             ConfigError::InvalidFieldType(expected, ref got) => write!(f, "Expected type {} got {}", expected, got),
+            ConfigError::InvalidFieldValue(field_name) => write!(f, "Invalid field value: {}", field_name),
         }
     }
 }
@@ -91,10 +100,20 @@ macro_rules! try_unwrap_toml {
     })
 }
 
+/// Macro simplifying the decoding of toml values to the config. Can be used in two forms:
+/// ```decode_toml!(config, field_name, toml_value)``` or
+/// ```decode_toml!(config, field_name, toml_value, error_value, |value| Option<mapped_value>)```.
+/// ```config``` - The config object, probably should be ```self```.
+/// ```field_name``` - The field name in the config struct and the toml table.
+/// ```toml_type``` - The ```toml::Value``` type that this field is mapped to. By default, this means the field
+///     in the struct should be of the same type as ```toml::Value::$toml_value```. If something more
+///     complicated is needed, use a map function.
+/// [map_function] - Converts a value from the ```toml::Value``` to a Result<T> where T is the
+///     type in the struct.
 macro_rules! decode_toml {
-    ($obj:expr, $name:ident, $table:expr, $toml_type:ident, $map_func:expr) => ({
+    ($obj:expr, $name:ident, $table:expr, $toml_type:ident, $map_filter_func:expr) => ({
         $obj.$name = match $table.remove(stringify!($name)) {
-            Some(val) => $map_func(try_unwrap_toml!(val, $toml_type)),
+            Some(val) => try!($map_filter_func(try_unwrap_toml!(val, $toml_type))),
             None => $obj.$name
         };
     });
@@ -106,6 +125,17 @@ macro_rules! decode_toml {
     });
 }
 
+/// Macro simplifying the creation of toml values from the config. Can be used in two forms:
+/// ```create_toml!(config, position, field_name, toml_value)``` or
+/// ```create_toml!(config, position, field_name, toml_value, |value| <mapped_value>)```.
+/// ```config``` - The config object, probably should be ```self```.
+/// ```position``` - The numeric mapping from a usize to the field type. This allows to create each line
+///     based on an index of the configuration option. This value is modified for each macro use.
+/// ```field_name``` - The field name in the config struct and the toml table.
+/// ```toml_type``` - The ```toml::Value``` type that this field is mapped to. By default, this means the field
+///     in the struct should be of the same type as ```toml::Value::$toml_value```. If something more
+///     complicated is needed, use a map function.
+/// ```[map_function]``` - Converts a value from the type in the config struct to the proper ```toml::Value```.
 macro_rules! create_toml {
     ($obj:expr, $pos:ident, $name:ident, $toml_type:ident, $map_func:expr) => ({
         if $pos == 0 {
@@ -129,8 +159,22 @@ impl<FS: Filesystem+'static> Config<FS> {
     fn apply_toml(&mut self, mut t: toml::Table) -> Result<(), ConfigError> {
         decode_toml!(self, show_ascii, t, Boolean);
         decode_toml!(self, show_linenum, t, Boolean);
-        decode_toml!(self, line_width, t, Integer, |i| if i > 0 { Some(i as u32) } else { None });
-        decode_toml!(self, group_bytes, t, Integer);
+        decode_toml!(self, line_width, t, Integer, |i|
+            if i > 0 {
+                Ok(Some(i as u32))
+            } else if i == 0 {
+                Ok(None)
+            } else {
+                Err(ConfigError::InvalidFieldValue("line_width must be >= 0"))
+            }
+        );
+        decode_toml!(self, group_bytes, t, Integer, |i|
+            if i <= 64 && i >= 0 {
+                Ok(i)
+            } else {
+                Err(ConfigError::InvalidFieldValue("group_bytes must be between 0 and 64"))
+            }
+        );
         if let Some((key, _)) = t.into_iter().next() {
             Err(ConfigError::InvalidFieldName(key))
         } else {
