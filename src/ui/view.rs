@@ -370,7 +370,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
 
         let itit = (start_iter..).zip(  // We are zipping the byte position
             self.buffer.iter_range(start_iter..stop_iter)  // With the data at those bytes
-            .map(|x| Some(x))  // And wrapping it in an option
+            .map(Some)  // And wrapping it in an option
             .chain(iter::once(None)))  // So we can have a "fake" last item that will be None
             .chunks_lazy(self.get_line_width() as usize);  //And split it into nice row-sized chunks
 
