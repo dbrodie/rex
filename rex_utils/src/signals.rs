@@ -143,8 +143,6 @@
 //! assert_eq!(app.bytes_changed, 9);
 //! ```
 
-#[macro_use]
-
 /// Internal macro used by the signal module, should not be used.
 #[macro_export]
 macro_rules! ident_zip_signal {

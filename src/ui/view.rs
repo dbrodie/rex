@@ -249,7 +249,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn get_bytes_per_row(&self) -> isize {
-        let byte_width = (self.rect.width - self.get_linenumber_width());
+        let byte_width = self.rect.width - self.get_linenumber_width();
         // The number of cells per byte WITHOUT whitespace is dependent on wether we are showing
         // the ascii bytes or not.
         let cells_per_byte = if self.config.show_ascii { 3 } else { 2 };
@@ -294,7 +294,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         let mut at_current_row = false;
 
         for (row_offset, (byte_pos, maybe_byte)) in iter.skip(self.row_offset as usize).enumerate().take(self.get_bytes_per_row() as usize) {
-            let at_current_byte = (byte_pos as isize == self.cursor_nibble_pos.to_bytes());
+            let at_current_byte = byte_pos as isize == self.cursor_nibble_pos.to_bytes();
             at_current_row = at_current_row || at_current_byte;
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
