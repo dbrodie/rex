@@ -223,9 +223,15 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn get_bytes_per_row(&self) -> isize {
-        let ascii_len = if self.config.show_ascii { 1 } else { 0 };
         let byte_width = (self.rect.width - self.get_linenumber_width());
-        let cells_per_byte = byte_width / (self.config.group_bytes as isize * (2 + ascii_len) + 1) * self.config.group_bytes as isize;
+        // The number of cells per byte WITHOUT whitespace is dependent on wether we are showing
+        // the ascii bytes or not.
+        let cells_per_byte = if self.config.show_ascii { 3 } else { 2 };
+        // The number of cells to display each group is dependent on the cells_per_byte and the
+        // bytes per group with an added whitespace char between the groups in hex view.
+        let cells_per_group = self.config.group_bytes as isize * (cells_per_byte) + 1;
+        let num_of_groups = byte_width / cells_per_group;
+        let cells_per_byte =  num_of_groups * self.config.group_bytes as isize;
         cells_per_byte
     }
 
@@ -245,11 +251,17 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
         };
     }
 
+    /// Helper function that returns the cell offset a nibble view should be displayed at
+    fn nibble_view_column(&self, row_offset: usize) -> usize {
+        // Two cells for each byte and the byte offset divided the number of bytes per group will
+        // give us the number of whitespace characters used.
+        self.get_linenumber_width() as usize + row_offset * 2 + (row_offset / self.config.group_bytes as usize)
+    }
+
     fn draw_line(&self, rb: &mut Frontend, iter: &mut Iterator<Item=(usize, Option<&u8>)>, row: usize) {
         let nibble_view_start = self.get_linenumber_width() as usize;
         // The value of this is wrong if we are not showing the ascii view
-        let bpr = self.get_bytes_per_row() as usize;
-        let byte_view_start = nibble_view_start + bpr * 2 + bpr / self.config.group_bytes as usize;
+        let byte_view_start = self.nibble_view_column(self.get_bytes_per_row() as usize);
 
         // We want the selection draw to not go out of the editor view
         let mut prev_in_selection = false;
@@ -272,7 +284,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 (' ', ' ')
             };
 
-            let nibble_view_column = nibble_view_start + (row_offset * 2) + row_offset / (self.config.group_bytes as usize);
+            let nibble_view_column = self.nibble_view_column(row_offset);
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
