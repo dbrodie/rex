@@ -73,6 +73,7 @@ pub struct Config<FS: Filesystem+'static> {
     pub show_linenum: bool,
     pub line_width: Option<u32>,
     pub group_bytes: i64,
+    pub little_endian: bool,
 
     _fs: PhantomData<FS>
 }
@@ -84,6 +85,7 @@ impl<FS: Filesystem+'static> Default for Config<FS> {
             show_linenum: true,
             line_width: None,
             group_bytes: 1,
+            little_endian: false,
             _fs: PhantomData,
         }
     }
@@ -175,6 +177,7 @@ impl<FS: Filesystem+'static> Config<FS> {
                 Err(ConfigError::InvalidFieldValue("group_bytes must be between 0 and 64"))
             }
         );
+        decode_toml!(self, little_endian, t, Boolean);
         if let Some((key, _)) = t.into_iter().next() {
             Err(ConfigError::InvalidFieldName(key))
         } else {
@@ -187,6 +190,7 @@ impl<FS: Filesystem+'static> Config<FS> {
         create_toml!(self, p, show_linenum, Boolean);
         create_toml!(self, p, line_width, Integer, |opt_i| if let Some(i) = opt_i { i as i64 } else { 0 });
         create_toml!(self, p, group_bytes, Integer);
+        create_toml!(self, p, little_endian, Boolean);
         None
     }
 

@@ -284,7 +284,15 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
                 (' ', ' ')
             };
 
-            let nibble_view_column = self.nibble_view_column(row_offset);
+            let nibble_view_column;
+            if !self.config.little_endian {
+                nibble_view_column = self.nibble_view_column(row_offset);
+            } else {
+                // Reverse the order of bytes in case of little endian
+                let group_offset = row_offset % self.config.group_bytes as usize;
+                let opposite_group_offset = self.config.group_bytes as usize - group_offset - 1;
+                nibble_view_column = self.nibble_view_column(row_offset - group_offset + opposite_group_offset);
+            }
             let nibble_style = if (!self.nibble_active && at_current_byte) || in_selection {
                 Style::Selection
             } else {
