@@ -28,3 +28,6 @@ path = "rex_utils"
 [dev-dependencies]
 lazy_static = "0.1"
 typenum = "1.0"
+
+[features]
+nightly = []

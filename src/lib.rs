@@ -1,3 +1,5 @@
+#![cfg_attr(all(test, feature = "nightly"), feature(test))]
+
 extern crate rustbox;
 extern crate rustc_serialize;
 extern crate toml;
@@ -5,6 +7,7 @@ extern crate itertools;
 #[macro_use] extern crate custom_derive;
 #[macro_use] extern crate newtype_derive;
 #[macro_use] extern crate rex_utils;
+#[cfg(test)] pub mod bench;
 
 pub mod config;
 pub mod filesystem;
