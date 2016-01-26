@@ -22,9 +22,6 @@ custom_derive = "0.1.2"
 enum_derive = "0.1.3"
 newtype_derive = "0.1.3"
 
-[dependencies.rex_utils]
-path = "rex_utils"
-
 [dev-dependencies]
 lazy_static = "0.1"
 typenum = "1.0"

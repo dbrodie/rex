@@ -2,8 +2,8 @@ use std::default::Default;
 use std::rc::Rc;
 use std::cmp;
 
-use rex_utils;
-use rex_utils::rect::Rect;
+use util;
+use util::rect::Rect;
 
 use super::super::config::{Config, Value};
 use super::super::filesystem::Filesystem;
@@ -62,7 +62,7 @@ impl<FS: Filesystem+'static> Widget for ConfigScreen<FS> {
 
     fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, _: bool) {
         rb.set_cursor(-1, -1);
-        let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
+        let clear_line = util::string_with_repeat(' ', area.width as usize);
 
         for i in 0..(area.height as usize) {
             rb.print_style(area.left as usize, area.top as usize + i, Style::Default, &clear_line);

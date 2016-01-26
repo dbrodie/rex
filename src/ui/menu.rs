@@ -1,7 +1,7 @@
 use std::default::Default;
 
-use rex_utils;
-use rex_utils::rect::Rect;
+use util;
+use util::rect::Rect;
 
 use super::common::Canceled;
 use super::input::Input;
@@ -107,7 +107,7 @@ impl Widget for OverlayMenu {
     }
 
     fn draw(&mut self, rb: &mut Frontend, area: Rect<isize>, _: bool) {
-        let clear_line = rex_utils::string_with_repeat(' ', area.width as usize);
+        let clear_line = util::string_with_repeat(' ', area.width as usize);
 
         if !self.show_help {
             let hint_msg = "Use ? to show/hide the menu help";

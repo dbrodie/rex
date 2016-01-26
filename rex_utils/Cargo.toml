@@ -1,8 +1,0 @@
-[package]
-name = "rex_utils"
-version = "0.1.0"
-authors = ["Daniel Brodie <daniel@brodienet.com>"]
-
-[dependencies]
-itertools = ">0.3.24"
-odds = "0.2"

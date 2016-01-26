@@ -19,7 +19,7 @@ impl<T> Rect<T> {
     ///
     /// ```
     /// use std::default::Default;
-    /// use rex_utils::rect::Rect;
+    /// use rex::util::rect::Rect;
     ///
     /// let rect = Rect { top: 2, height: 5, ..Default::default()};
     /// assert_eq!(rect.bottom(), 7);
@@ -35,7 +35,7 @@ impl<T> Rect<T> {
     ///
     /// ```
     /// use std::default::Default;
-    /// use rex_utils::rect::Rect;
+    /// use rex::util::rect::Rect;
     ///
     /// let rect = Rect { left: 2, width: 5, ..Default::default()};
     /// assert_eq!(rect.right(), 7);

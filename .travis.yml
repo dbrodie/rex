@@ -10,5 +10,4 @@ matrix:
     - rust: nightly
 script:
   - cargo build --verbose
-  - cargo test -p rex_utils --verbose
   - cargo test --verbose

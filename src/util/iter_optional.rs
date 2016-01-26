@@ -31,7 +31,7 @@ pub trait IterOptionalExt : Iterator {
     /// # Examples
     ///
     /// ```
-    /// use rex_utils::iter_optional::IterOptionalExt;
+    /// use rex::util::iter_optional::IterOptionalExt;
     ///
     /// let src_iter = vec![1, 2, 3].into_iter();
     /// let optional_iterator = src_iter.optional(true, |iter| iter.map(|x| x*2), |iter| iter);
