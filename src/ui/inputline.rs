@@ -4,8 +4,8 @@ use std::path::{PathBuf, Path};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use rex_utils;
-use rex_utils::rect::Rect;
+use util;
+use util::rect::Rect;
 use super::super::frontend::{Frontend, Style, KeyPress};
 use super::super::filesystem::Filesystem;
 use super::super::config::Value;
@@ -129,7 +129,7 @@ impl<T:InputLineBehavior> Widget for InputLine<T> {
         };
 
         rb.print_style(area.left as usize, area.top as usize, style,
-                 &rex_utils::string_with_repeat(' ', area.width as usize));
+                 &util::string_with_repeat(' ', area.width as usize));
         rb.print_style(x_pos as usize, area.top as usize, style,
               &status_msg[start_index as usize..]);
         rb.print_style(area.left as usize, area.top as usize, style,

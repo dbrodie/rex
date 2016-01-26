@@ -63,8 +63,8 @@ impl<T> RelativeRect<T>
     /// # Examples
     ///
     /// ```
-    /// use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
-    /// use rex_utils::rect::Rect;
+    /// use rex::util::relative_rect::{RelativeRect, RelativePos, RelativeSize};
+    /// use rex::util::rect::Rect;
     ///
     /// let sub_rect = RelativeRect {
     ///     // This is addition on .top

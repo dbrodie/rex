@@ -1,4 +1,4 @@
-use rex_utils::rect::Rect;
+use util::rect::Rect;
 
 use super::super::frontend::{Frontend, KeyPress};
 use super::input::Input;

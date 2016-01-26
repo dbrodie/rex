@@ -4,15 +4,6 @@
 //! documentation for the API is a bit hidden by the types creates by the macros. The signal allows
 //! connecting a single closure that can be signaled multiple times.
 //!
-//! # Usage
-//!
-//! This module is almost all macros, to use it you should declare the create in your main.rs or
-//! lib.rs as:
-//!
-//! ```ignore
-//! #[macro_use] extern crate rex_utils;
-//! ```
-//!
 //! # Declaring a signal
 //!
 //! The first part of the signal API is declaring the signal with the type of the arguments. This

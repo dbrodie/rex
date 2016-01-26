@@ -12,11 +12,11 @@ use std::borrow::Cow;
 use std::rc::Rc;
 use std::marker::PhantomData;
 
-use rex_utils;
-use rex_utils::split_vec::SplitVec;
-use rex_utils::rect::Rect;
-use rex_utils::relative_rect::{RelativeRect, RelativePos, RelativeSize};
-use rex_utils::signals::SignalReceiver;
+use util;
+use util::split_vec::SplitVec;
+use util::rect::Rect;
+use util::relative_rect::{RelativeRect, RelativePos, RelativeSize};
+use util::signals::SignalReceiver;
 use super::super::config::{Config, Value, ConfigError};
 
 use super::super::frontend::{Frontend, Style, KeyPress};
@@ -298,14 +298,14 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
             at_current_row = at_current_row || at_current_byte;
 
             let in_selection = if let Some(selection_pos) = self.selection_start {
-                rex_utils::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos.to_bytes())
+                util::is_between(byte_pos as isize, selection_pos, self.cursor_nibble_pos.to_bytes())
             } else {
                 false
             };
 
             // Now we draw the nibble view
             let hex_chars = if let Some(&byte) = maybe_byte {
-                rex_utils::u8_to_hex(byte)
+                util::u8_to_hex(byte)
             } else {
                 (' ', ' ')
             };
@@ -404,7 +404,7 @@ impl<FS: Filesystem+'static> HexEdit<FS> {
     }
 
     fn draw_statusbar(&self, rb: &Frontend) {
-        rb.print_style(0, rb.height() - 1, Style::StatusBar, &rex_utils::string_with_repeat(' ', rb.width()));
+        rb.print_style(0, rb.height() - 1, Style::StatusBar, &util::string_with_repeat(' ', rb.width()));
         if self.show_last_status {
             if let Some(ref status_line) = self.status_log.last() {
                 rb.print_style(0, rb.height() - 1, Style::StatusBar, &status_line);

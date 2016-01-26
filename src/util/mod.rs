@@ -1,10 +1,3 @@
-//! rex_utils is a small side library to allow to seperate the non-core parts out of rex.
-//!
-//! This allows us to have proper unit tests to the crate (since unit tests for binary crates in
-//! rust are not well supported).
-extern crate itertools;
-extern crate odds;
-
 use std::iter;
 use std::char;
 
@@ -19,7 +12,7 @@ pub mod relative_rect;
 /// # Examples
 ///
 /// ```
-/// use rex_utils::string_with_repeat;
+/// use rex::util::string_with_repeat;
 ///
 /// assert_eq!(string_with_repeat('a', 5), "aaaaa");
 /// ```
@@ -33,7 +26,7 @@ pub fn string_with_repeat(c: char, n: usize) -> String {
 ///
 /// # Examples
 /// ```
-/// use rex_utils::is_between;
+/// use rex::util::is_between;
 ///
 /// assert!(is_between(2, 1, 5));
 /// assert!(is_between(2, 5, 1));
@@ -54,9 +47,9 @@ pub fn is_between<N: PartialOrd>(num: N, a: N, b: N) -> bool {
 /// # Examples
 ///
 /// ```
-/// use rex_utils;
+/// use rex::util;
 ///
-/// assert_eq!(rex_utils::u8_to_hex(0xab), ('a', 'b'));
+/// assert_eq!(util::u8_to_hex(0xab), ('a', 'b'));
 /// ```
 pub fn u8_to_hex(b: u8) -> (char, char) {
     (char::from_digit((b as u32 >> 4) & 0xF, 16).unwrap(),

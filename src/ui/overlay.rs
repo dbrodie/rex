@@ -3,9 +3,9 @@ use std::cmp;
 use std::str::Lines;
 use std::slice::Iter;
 
-use rex_utils;
-use rex_utils::iter_optional::IterOptionalExt;
-use rex_utils::rect::Rect;
+use util;
+use util::iter_optional::IterOptionalExt;
+use util::rect::Rect;
 
 use super::common::Canceled;
 use super::super::frontend::{Frontend, Style, KeyPress};
@@ -109,7 +109,7 @@ impl Widget for OverlayText {
             // Clean the line
 
             rb.print_style(area.left as usize, (area.top + i as isize) as usize, Style::Default,
-                &rex_utils::string_with_repeat(' ', (area.width) as usize));
+                &util::string_with_repeat(' ', (area.width) as usize));
 
             // And draw the text if there is one
             if let Some(line) = opt_line {
