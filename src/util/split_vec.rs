@@ -55,7 +55,7 @@ pub struct SplitVec {
     length: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Index {
     outer: usize,
     inner: usize,
