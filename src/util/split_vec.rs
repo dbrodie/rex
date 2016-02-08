@@ -159,7 +159,7 @@ impl SplitVec {
     }
 
     /// Give a mutable iterator over a given range
-    pub fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
+    fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
         let (from, to) = range.from_range(self);
         if to < from {
             panic!("to ({}) is smaller than from ({})!", to, from);
@@ -214,7 +214,7 @@ impl SplitVec {
     }
 
     /// insert all values from a slice at an offset.
-    pub fn insert(&mut self, offset: usize, values: &[u8]) {
+    fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
 
@@ -227,7 +227,7 @@ impl SplitVec {
     }
 
     /// Moves data out from the supplied range.
-    pub fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+    fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
         let (from, to) = range.from_range(self);
         // TODO: Convert to drain when that settles
         assert!(from <= to);
@@ -263,7 +263,7 @@ impl SplitVec {
     }
 
     /// Copy data from a slice in.
-    pub fn copy_in(&mut self, offset: usize, val: &[u8]) {
+    fn copy_in(&mut self, offset: usize, val: &[u8]) {
         for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
             *d = s.clone();
         }
