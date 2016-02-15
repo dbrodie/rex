@@ -55,7 +55,7 @@ pub struct SplitVec {
     length: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Index {
     outer: usize,
     inner: usize,
@@ -100,6 +100,15 @@ impl SplitVec {
             vecs: vec![values],
             length: len,
         }
+    }
+
+    fn from_vecs(vecs: Vec<Vec<u8>>) -> SplitVec {
+        let mut sv = SplitVec {
+            vecs: vecs,
+            length: 0,
+        };
+        sv.calc_len();
+        sv
     }
 
     /// Create a SplitVec by copying in values from a slice
@@ -158,21 +167,6 @@ impl SplitVec {
         }
     }
 
-    /// Give a mutable iterator over a given range
-    pub fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
-        let (from, to) = range.from_range(self);
-        if to < from {
-            panic!("to ({}) is smaller than from ({})!", to, from);
-        }
-
-        let idx = self.pos_to_index(from, false);
-        MutItems {
-            seg: self,
-            index: idx,
-            num_elem: Some(to - from),
-        }
-    }
-
     /// Provide an iterator over continuous memory slices
     ///
     /// This is useful for doing an efficient save to disk
@@ -214,7 +208,7 @@ impl SplitVec {
     }
 
     /// insert all values from a slice at an offset.
-    pub fn insert(&mut self, offset: usize, values: &[u8]) {
+    fn insert(&mut self, offset: usize, values: &[u8]) {
         let mut index = self.pos_to_index(offset, true);
         index = self.prepare_insert(index);
 
@@ -227,27 +221,38 @@ impl SplitVec {
     }
 
     /// Moves data out from the supplied range.
-    pub fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
+    fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
         let (from, to) = range.from_range(self);
-        // TODO: Convert to drain when that settles
         assert!(from <= to);
         let mut res = Vec::new();
-        let mut index = self.pos_to_index(from, false);
-        let num_elem = to - from;
 
-        for _ in 0..num_elem {
-            let c = self.vecs[index.outer].remove(index.inner);
-            res.push(c);
+        let begin = self.pos_to_index(from, false);
+        let end = self.pos_to_index(to, true);
 
-            if index.inner >= self.vecs[index.outer].len() {
-                if self.vecs[index.outer].len() == 0 {
-                    self.vecs.remove(index.outer);
-                } else {
-                    index.inner = 0;
-                    index.outer += 1;
-                }
-            }
+        // Simple case, by staying on the same section
+        if begin.outer == end.outer {
+            return self.vecs[begin.outer].drain(begin.inner..end.inner).collect();
         }
+
+        // First drain out the result
+        for outer_index in begin.outer..end.outer {
+            // Drain what we can
+            let drain_begin = if outer_index != begin.outer {
+                0
+            } else {
+                begin.inner
+            };
+            let drain_end = if outer_index != end.outer {
+                self.vecs[outer_index].len()
+            } else {
+                end.inner
+            };
+
+            res.extend(self.vecs[outer_index].drain(drain_begin..drain_end));
+        }
+
+        // TODO: Make this also possible to merge small vecs
+        self.vecs.retain(|vec| vec.len() != 0);
 
         self.calc_len();
 
@@ -262,20 +267,14 @@ impl SplitVec {
         self.iter_range(from..to).map(|x| *x).collect::<Vec<u8>>()
     }
 
-    /// Copy data from a slice in.
-    pub fn copy_in(&mut self, offset: usize, val: &[u8]) {
-        for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
-            *d = s.clone();
-        }
-    }
-
     /// Replace values in range with the supplied values
     pub fn splice<R: FromRange>(&mut self, range: R, values: &[u8]) -> Vec<u8> {
-        // TODO: This is terribly inefficient, will need a reimplementation
         let (from, to) = range.from_range(self);
         let res;
 
         // Make sure that when we pull data out for the splice, we don't go over the end
+        // TODO: Replace with better splice implementation once an implementation for rfc-1432
+        // lands.
         if from < self.len() {
             let move_end = cmp::min(self.len(), to);
             res = self.move_out(from..move_end);
@@ -399,34 +398,118 @@ impl<'a> Iterator for Slices<'a> {
     }
 }
 
-#[test]
-fn test_small_splitvec() {
-    let size = 1024;
-    let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
-    assert_eq!(Some(4), seg.find_slice(&[5]));
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    let seg_len = seg.len();
-    seg.insert(seg_len/2, &vec![1 as u8; size]);
+    const SIZE: usize = 30;
 
-    assert_eq!(Some(size + 4), seg.find_slice(&[5]));
-}
+    fn create_test_split_vec() -> SplitVec {
+        SplitVec::from_vecs(vec![vec![0; SIZE], vec![1; SIZE]])//, vec![2; SIZE], vec![3; SIZE]])
+    }
 
-#[test]
-fn test_large_splitvec() {
-    let big_size = 4*1024*1024;
-    let small_size = 1024;
-    let mut seg = SplitVec::from_vec(vec![0; big_size]);
+    #[test]
+    fn test_replace_in_split() {
+        let mut sv = create_test_split_vec();
 
-    seg.insert(big_size/2, &vec![1 as u8; small_size]);
+        sv.splice(SIZE-10..SIZE+10, &vec![5, 5]);
 
-    assert_eq!(Some(big_size/2 -1), seg.find_slice(&[0, 1]));
+        assert_eq!(sv[SIZE-11], 0);
+        assert_eq!(sv[SIZE-10], 5);
+        assert_eq!(sv[SIZE-9], 5);
+        assert_eq!(sv[SIZE-8], 1);
+    }
 
-    // Make sure we actually tested a "split" version
-    let seg_lengths = seg.get_lengths();
-    assert_eq!(2, seg_lengths.len());
-    let index = seg_lengths[0];
-    let sentinal = 100;
-    seg[index] = sentinal;
-    seg[index+1] = sentinal +1;
-    assert_eq!(Some(index), seg.find_slice(&[sentinal, sentinal+1]));
+    #[test]
+    fn test_insert_in_split() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(SIZE..SIZE, &vec![5, 5]);
+
+        assert_eq!(sv[SIZE-1], 0);
+        assert_eq!(sv[SIZE], 5);
+        assert_eq!(sv[SIZE+1], 5);
+        assert_eq!(sv[SIZE+2], 1);
+    }
+
+    #[test]
+    fn test_delete_in_split() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(SIZE-10..SIZE+10, &vec![]);
+
+        assert_eq!(sv[SIZE-11], 0);
+        assert_eq!(sv[SIZE-10], 1);
+    }
+
+    const MIDDLE: usize = SIZE/2;
+
+    #[test]
+    fn test_replace_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE-10..MIDDLE+10, &vec![5, 5]);
+
+        assert_eq!(sv[MIDDLE-11], 0);
+        assert_eq!(sv[MIDDLE-10], 5);
+        assert_eq!(sv[MIDDLE-9], 5);
+        assert_eq!(sv[MIDDLE-8], 0);
+
+        assert_eq!(sv[SIZE-19], 0);
+        assert_eq!(sv[SIZE-18], 1);
+    }
+
+    #[test]
+    fn test_insert_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE..MIDDLE, &vec![5, 5]);
+
+        assert_eq!(sv[MIDDLE-1], 0);
+        assert_eq!(sv[MIDDLE], 5);
+        assert_eq!(sv[MIDDLE+1], 5);
+        assert_eq!(sv[MIDDLE+2], 0);
+    }
+
+    #[test]
+    fn test_delete_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE-2..MIDDLE+2, &vec![]);
+
+        assert_eq!(sv[SIZE-5], 0);
+        assert_eq!(sv[SIZE-4], 1);
+    }
+
+    #[test]
+    fn test_small_splitvec() {
+        let size = 1024;
+        let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
+        assert_eq!(Some(4), seg.find_slice(&[5]));
+
+        let seg_len = seg.len();
+        seg.splice((seg_len/2)..(seg_len/2), &vec![1 as u8; size]);
+
+        assert_eq!(Some(size + 4), seg.find_slice(&[5]));
+    }
+
+    #[test]
+    fn test_large_splitvec() {
+        let big_size = 4*1024*1024;
+        let small_size = 1024;
+        let mut seg = SplitVec::from_vec(vec![0; big_size]);
+
+        seg.splice((big_size/2)..(big_size/2), &vec![1 as u8; small_size]);
+
+        assert_eq!(Some(big_size/2 -1), seg.find_slice(&[0, 1]));
+
+        // Make sure we actually tested a "split" version
+        let seg_lengths = seg.get_lengths();
+        assert_eq!(2, seg_lengths.len());
+        let index = seg_lengths[0];
+        let sentinal = 100;
+        seg[index] = sentinal;
+        seg[index+1] = sentinal +1;
+        assert_eq!(Some(index), seg.find_slice(&[sentinal, sentinal+1]));
+    }
 }
