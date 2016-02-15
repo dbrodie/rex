@@ -158,21 +158,6 @@ impl SplitVec {
         }
     }
 
-    /// Give a mutable iterator over a given range
-    fn mut_iter_range<'a, R: FromRange>(&'a mut self, range: R) -> MutItems<'a> {
-        let (from, to) = range.from_range(self);
-        if to < from {
-            panic!("to ({}) is smaller than from ({})!", to, from);
-        }
-
-        let idx = self.pos_to_index(from, false);
-        MutItems {
-            seg: self,
-            index: idx,
-            num_elem: Some(to - from),
-        }
-    }
-
     /// Provide an iterator over continuous memory slices
     ///
     /// This is useful for doing an efficient save to disk
@@ -260,13 +245,6 @@ impl SplitVec {
 
         // TODO: Make this use direct cocpy rather than iterators
         self.iter_range(from..to).map(|x| *x).collect::<Vec<u8>>()
-    }
-
-    /// Copy data from a slice in.
-    fn copy_in(&mut self, offset: usize, val: &[u8]) {
-        for (s, d) in val.iter().zip(self.mut_iter_range(offset..(offset + val.len()))) {
-            *d = s.clone();
-        }
     }
 
     /// Replace values in range with the supplied values
