@@ -102,6 +102,15 @@ impl SplitVec {
         }
     }
 
+    fn from_vecs(vecs: Vec<Vec<u8>>) -> SplitVec {
+        let mut sv = SplitVec {
+            vecs: vecs,
+            length: 0,
+        };
+        sv.calc_len();
+        sv
+    }
+
     /// Create a SplitVec by copying in values from a slice
     pub fn from_slice(values: &[u8]) -> SplitVec {
         SplitVec {
@@ -377,34 +386,118 @@ impl<'a> Iterator for Slices<'a> {
     }
 }
 
-#[test]
-fn test_small_splitvec() {
-    let size = 1024;
-    let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
-    assert_eq!(Some(4), seg.find_slice(&[5]));
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    let seg_len = seg.len();
-    seg.insert(seg_len/2, &vec![1 as u8; size]);
+    const SIZE: usize = 30;
 
-    assert_eq!(Some(size + 4), seg.find_slice(&[5]));
-}
+    fn create_test_split_vec() -> SplitVec {
+        SplitVec::from_vecs(vec![vec![0; SIZE], vec![1; SIZE]])//, vec![2; SIZE], vec![3; SIZE]])
+    }
 
-#[test]
-fn test_large_splitvec() {
-    let big_size = 4*1024*1024;
-    let small_size = 1024;
-    let mut seg = SplitVec::from_vec(vec![0; big_size]);
+    #[test]
+    fn test_replace_in_split() {
+        let mut sv = create_test_split_vec();
 
-    seg.insert(big_size/2, &vec![1 as u8; small_size]);
+        sv.splice(SIZE-10..SIZE+10, &vec![5, 5]);
 
-    assert_eq!(Some(big_size/2 -1), seg.find_slice(&[0, 1]));
+        assert_eq!(sv[SIZE-11], 0);
+        assert_eq!(sv[SIZE-10], 5);
+        assert_eq!(sv[SIZE-9], 5);
+        assert_eq!(sv[SIZE-8], 1);
+    }
 
-    // Make sure we actually tested a "split" version
-    let seg_lengths = seg.get_lengths();
-    assert_eq!(2, seg_lengths.len());
-    let index = seg_lengths[0];
-    let sentinal = 100;
-    seg[index] = sentinal;
-    seg[index+1] = sentinal +1;
-    assert_eq!(Some(index), seg.find_slice(&[sentinal, sentinal+1]));
+    #[test]
+    fn test_insert_in_split() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(SIZE..SIZE, &vec![5, 5]);
+
+        assert_eq!(sv[SIZE-1], 0);
+        assert_eq!(sv[SIZE], 5);
+        assert_eq!(sv[SIZE+1], 5);
+        assert_eq!(sv[SIZE+2], 1);
+    }
+
+    #[test]
+    fn test_delete_in_split() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(SIZE-10..SIZE+10, &vec![]);
+
+        assert_eq!(sv[SIZE-11], 0);
+        assert_eq!(sv[SIZE-10], 1);
+    }
+
+    const MIDDLE: usize = SIZE/2;
+
+    #[test]
+    fn test_replace_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE-10..MIDDLE+10, &vec![5, 5]);
+
+        assert_eq!(sv[MIDDLE-11], 0);
+        assert_eq!(sv[MIDDLE-10], 5);
+        assert_eq!(sv[MIDDLE-9], 5);
+        assert_eq!(sv[MIDDLE-8], 0);
+
+        assert_eq!(sv[SIZE-19], 0);
+        assert_eq!(sv[SIZE-18], 1);
+    }
+
+    #[test]
+    fn test_insert_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE..MIDDLE, &vec![5, 5]);
+
+        assert_eq!(sv[MIDDLE-1], 0);
+        assert_eq!(sv[MIDDLE], 5);
+        assert_eq!(sv[MIDDLE+1], 5);
+        assert_eq!(sv[MIDDLE+2], 0);
+    }
+
+    #[test]
+    fn test_delete_in_middle() {
+        let mut sv = create_test_split_vec();
+
+        sv.splice(MIDDLE-2..MIDDLE+2, &vec![]);
+
+        assert_eq!(sv[SIZE-5], 0);
+        assert_eq!(sv[SIZE-4], 1);
+    }
+
+    #[test]
+    fn test_small_splitvec() {
+        let size = 1024;
+        let mut seg = SplitVec::from_vec(vec![1, 2, 3, 4, 5]);
+        assert_eq!(Some(4), seg.find_slice(&[5]));
+
+        let seg_len = seg.len();
+        seg.splice((seg_len/2)..(seg_len/2), &vec![1 as u8; size]);
+
+        assert_eq!(Some(size + 4), seg.find_slice(&[5]));
+    }
+
+    #[test]
+    fn test_large_splitvec() {
+        let big_size = 4*1024*1024;
+        let small_size = 1024;
+        let mut seg = SplitVec::from_vec(vec![0; big_size]);
+
+        seg.splice((big_size/2)..(big_size/2), &vec![1 as u8; small_size]);
+
+        assert_eq!(Some(big_size/2 -1), seg.find_slice(&[0, 1]));
+
+        // Make sure we actually tested a "split" version
+        let seg_lengths = seg.get_lengths();
+        assert_eq!(2, seg_lengths.len());
+        let index = seg_lengths[0];
+        let sentinal = 100;
+        seg[index] = sentinal;
+        seg[index+1] = sentinal +1;
+        assert_eq!(Some(index), seg.find_slice(&[sentinal, sentinal+1]));
+    }
 }
