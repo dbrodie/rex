@@ -223,25 +223,36 @@ impl SplitVec {
     /// Moves data out from the supplied range.
     fn move_out<R: FromRange>(&mut self, range: R) -> Vec<u8> {
         let (from, to) = range.from_range(self);
-        // TODO: Convert to drain when that settles
         assert!(from <= to);
         let mut res = Vec::new();
-        let mut index = self.pos_to_index(from, false);
-        let num_elem = to - from;
 
-        for _ in 0..num_elem {
-            let c = self.vecs[index.outer].remove(index.inner);
-            res.push(c);
+        let begin = self.pos_to_index(from, false);
+        let end = self.pos_to_index(to, true);
 
-            if index.inner >= self.vecs[index.outer].len() {
-                if self.vecs[index.outer].len() == 0 {
-                    self.vecs.remove(index.outer);
-                } else {
-                    index.inner = 0;
-                    index.outer += 1;
-                }
-            }
+        // Simple case, by staying on the same section
+        if begin.outer == end.outer {
+            return self.vecs[begin.outer].drain(begin.inner..end.inner).collect();
         }
+
+        // First drain out the result
+        for outer_index in begin.outer..end.outer {
+            // Drain what we can
+            let drain_begin = if outer_index != begin.outer {
+                0
+            } else {
+                begin.inner
+            };
+            let drain_end = if outer_index != end.outer {
+                self.vecs[outer_index].len()
+            } else {
+                end.inner
+            };
+
+            res.extend(self.vecs[outer_index].drain(drain_begin..drain_end));
+        }
+
+        // TODO: Make this also possible to merge small vecs
+        self.vecs.retain(|vec| vec.len() != 0);
 
         self.calc_len();
 
@@ -258,11 +269,12 @@ impl SplitVec {
 
     /// Replace values in range with the supplied values
     pub fn splice<R: FromRange>(&mut self, range: R, values: &[u8]) -> Vec<u8> {
-        // TODO: This is terribly inefficient, will need a reimplementation
         let (from, to) = range.from_range(self);
         let res;
 
         // Make sure that when we pull data out for the splice, we don't go over the end
+        // TODO: Replace with better splice implementation once an implementation for rfc-1432
+        // lands.
         if from < self.len() {
             let move_end = cmp::min(self.len(), to);
             res = self.move_out(from..move_end);
