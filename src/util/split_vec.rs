@@ -102,7 +102,7 @@ impl SplitVec {
         }
     }
 
-    fn from_vecs(vecs: Vec<Vec<u8>>) -> SplitVec {
+    pub fn from_vecs(vecs: Vec<Vec<u8>>) -> SplitVec {
         let mut sv = SplitVec {
             vecs: vecs,
             length: 0,
