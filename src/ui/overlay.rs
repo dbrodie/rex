@@ -12,7 +12,7 @@ use super::super::frontend::{Frontend, Style, KeyPress};
 use super::input::Input;
 use super::widget::Widget;
 
-enum ToLinesIter<'a> {
+pub enum ToLinesIter<'a> {
     StringLines(Lines<'a>),
     SliceLines(Iter<'a, String>)
 }

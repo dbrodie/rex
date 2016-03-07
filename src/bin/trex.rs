@@ -7,7 +7,6 @@ extern crate rex;
 mod rex_term;
 
 use std::path::Path;
-use std::error::Error;
 use std::process;
 use docopt::Docopt;
 
