@@ -7,14 +7,14 @@ use std::io::Write;
 use std::path::{PathBuf, Path};
 
 pub trait Filesystem {
-  type FSRead: Read;
-  type FSWrite: Write;
-  fn get_config_home() -> PathBuf;
-  fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf>;
-  fn open<P: AsRef<Path>>(p: P) -> io::Result<Self::FSRead>;
-  fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()>;
-  fn save<P: AsRef<Path>>(p: P) -> io::Result<Self::FSWrite>;
-  fn can_save<P: AsRef<Path>>(p: P) -> io::Result<()>;
+    type FSRead: Read;
+    type FSWrite: Write;
+    fn get_config_home() -> PathBuf;
+    fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf>;
+    fn open<P: AsRef<Path>>(p: P) -> io::Result<Self::FSRead>;
+    fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()>;
+    fn save<P: AsRef<Path>>(p: P) -> io::Result<Self::FSWrite>;
+    fn can_save<P: AsRef<Path>>(p: P) -> io::Result<()>;
 }
 
 pub struct DefaultFilesystem;
