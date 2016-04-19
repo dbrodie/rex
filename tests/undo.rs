@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate lazy_static;
-extern crate typenum;
 
 extern crate rex;
 
@@ -10,7 +9,7 @@ use std::path::Path;
 
 use rex::frontend::{KeyPress};
 
-use util::mock_filesystem::{DefMockFilesystem};
+use util::mock_filesystem::{MockFilesystem, ThreadedMockFilesystem};
 
 #[test]
 fn test_undo_insert() {
@@ -26,7 +25,7 @@ fn test_undo_insert() {
     assert_eq!(edit.get_position(), 0);
 
     edit.save(Path::new("test_undo_insert"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_undo_insert").iter());
+    util::assert_iter_eq(result.iter(), ThreadedMockFilesystem::get_inner("test_undo_insert").iter());
 }
 
 #[test]
@@ -42,5 +41,5 @@ fn test_undo_delete() {
     assert_eq!(edit.get_position(), 0);
 
     edit.save(Path::new("test_undo_delete"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_undo_delete").iter());
+    util::assert_iter_eq(result.iter(), ThreadedMockFilesystem::get_inner("test_undo_delete").iter());
 }

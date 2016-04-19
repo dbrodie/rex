@@ -4,9 +4,6 @@ pub mod bytes;
 
 use std::fmt::Debug;
 
-use typenum::uint::Unsigned;
-use typenum::consts;
-
 use rex::ui::view::HexEdit;
 
 // Little helper function till Iterator.eq stabalizes
@@ -48,7 +45,7 @@ pub fn simple_init_with_vec(vec: Vec<u8>) -> (HexEdit<mock_filesystem::MockFiles
     simple_init_helper(Some(vec))
 }
 
-pub fn simple_init_helper<T: Unsigned = consts::U0>(maybe_vec: Option<Vec<u8>>) ->
+pub fn simple_init_helper<T: mock_filesystem::MockFilesystemBackend + 'static>(maybe_vec: Option<Vec<u8>>) ->
         (HexEdit<mock_filesystem::MockFilesystem<T>>, mock_frontend::MockFrontend) {
     let mut edit: HexEdit<mock_filesystem::MockFilesystem<T>> = HexEdit::new();
     let mut frontend = mock_frontend::MockFrontend::new();

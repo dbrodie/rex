@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate lazy_static;
-extern crate typenum;
 extern crate odds;
 
 extern crate rex;
@@ -13,7 +12,7 @@ use odds::vec::VecExt;
 
 use rex::frontend::KeyPress;
 
-use util::mock_filesystem::DefMockFilesystem;
+use util::mock_filesystem::{MockFilesystem, ThreadedMockFilesystem};
 
 #[test]
 /// Test that copy/paste works in insert mode
@@ -46,7 +45,7 @@ fn test_insert_copy_paste() {
     println!("v_copy = {:?}", v_copy);
 
     edit.save(Path::new("test_insert_copy_paste"));
-    util::assert_iter_eq(v_copy.iter(), DefMockFilesystem::get_inner("test_insert_copy_paste").iter());
+    util::assert_iter_eq(v_copy.iter(), ThreadedMockFilesystem::get_inner("test_insert_copy_paste").iter());
 }
 
 #[test]
@@ -79,7 +78,7 @@ fn test_overwrite_copy_paste() {
     println!("v_copy = {:?}", v_copy);
 
     edit.save(Path::new("test_overwrite_copy_paste"));
-    util::assert_iter_eq(v_copy.iter(), DefMockFilesystem::get_inner("test_overwrite_copy_paste").iter());
+    util::assert_iter_eq(v_copy.iter(), ThreadedMockFilesystem::get_inner("test_overwrite_copy_paste").iter());
 }
 
 
@@ -106,5 +105,5 @@ fn test_cut_paste() {
     println!("v_copy = {:?}", v_copy);
 
     edit.save(Path::new("test_cut_paste"));
-    util::assert_iter_eq(v_copy.iter(), DefMockFilesystem::get_inner("test_cut_paste").iter());
+    util::assert_iter_eq(v_copy.iter(), ThreadedMockFilesystem::get_inner("test_cut_paste").iter());
 }
