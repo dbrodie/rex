@@ -6,13 +6,9 @@ use std::collections::hash_map::{HashMap, Entry};
 use std::sync::{Arc, Mutex};
 use std::mem;
 use std::marker::PhantomData;
-use typenum::uint::Unsigned;
-use typenum::consts;
 
 use rex::filesystem::Filesystem;
 
-pub type DefaultConfig = consts::U0;
-pub type TestOpenSaveConfig = consts::U1;
 const NUM_CONFIG_TESTS: usize = 2;
 
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
@@ -26,6 +22,30 @@ lazy_static! {
         ];
         Mutex::new(tmp)
     };
+}
+
+pub trait MockFilesystemBackend {
+    fn get_backend() -> MockFilesystemImpl;
+}
+
+pub struct MockFilesystemImpl {
+    files: Arc<Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>>>,
+}
+
+impl Default for MockFilesystemImpl {
+    fn default() -> MockFilesystemImpl {
+        MockFilesystemImpl {
+            files: Arc::new(Mutex::new(HashMap::new()))
+        }
+    }
+}
+
+impl Clone for MockFilesystemImpl {
+    fn clone(&self) -> MockFilesystemImpl {
+        MockFilesystemImpl {
+            files: self.files.clone()
+        }
+    }
 }
 
 pub struct MockFile(Arc<Mutex<Vec<u8>>>, u64);
@@ -72,15 +92,24 @@ impl Write for MockFile {
     }
 }
 
-/// A mock implementation of `Filesystem` over thread-safe buffers
-pub struct MockFilesystem<N: Unsigned = consts::U0> (
-    PhantomData<N>
-);
+#[derive(Debug, Clone, Copy)]
+pub struct ThreadLocalMockFilesystem;
 
-pub type DefMockFilesystem = MockFilesystem<consts::U0>;
+thread_local!(static THREAD_LOCAL_MOCK_FILESYSTEM: MockFilesystemImpl = Default::default());
 
+impl MockFilesystemBackend for ThreadLocalMockFilesystem {
+    fn get_backend() -> MockFilesystemImpl {
+        let mut ret: Option<MockFilesystemImpl> = None;
+        THREAD_LOCAL_MOCK_FILESYSTEM.with(
+            |val| ret = Some(val.clone())
+        );
+        ret.unwrap()
+    }
+}
 
-impl<N: Unsigned> Filesystem for MockFilesystem<N> {
+pub struct MockFilesystem<T: MockFilesystemBackend + 'static = ThreadLocalMockFilesystem>(PhantomData<T>);
+
+impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
@@ -96,7 +125,9 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
         if path.as_ref() == Path::new(CONFIG_PATH) {
             return Self::open_config()
         }
-        FILES.lock().unwrap().get(path.as_ref()).ok_or(io::Error::new(io::ErrorKind::NotFound, "File not found!")).map(|file|
+        let backend = T::get_backend();
+        let file_map = backend.files.lock().unwrap();
+        file_map.get(path.as_ref()).ok_or(io::Error::new(io::ErrorKind::NotFound, "File not found!")).map(|file|
             MockFile::new(file.clone())
         )
     }
@@ -110,7 +141,9 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
             return Self::save_config()
         }
         let file = Arc::new(Mutex::new(Vec::new()));
-        if let Entry::Vacant(entry) = FILES.lock().unwrap().entry(path.as_ref().into()) {
+        let backend = T::get_backend();
+        let mut file_map = backend.files.lock().unwrap();
+        if let Entry::Vacant(entry) = file_map.entry(path.as_ref().into()) {
             entry.insert(file.clone());
             Ok(MockFile::new(file))
         } else {
@@ -123,34 +156,37 @@ impl<N: Unsigned> Filesystem for MockFilesystem<N> {
     }
 }
 
-impl<N: Unsigned> MockFilesystem<N> {
-    pub fn open_config() -> io::Result<<MockFilesystem<N> as Filesystem>::FSRead> {
-        if let Some(ref file) = CONFIG_FILES.lock().unwrap()[N::to_usize()] {
+impl<T: MockFilesystemBackend + 'static> MockFilesystem<T> {
+    pub fn open_config() -> io::Result<<MockFilesystem<T> as Filesystem>::FSRead> {
+        if let Some(ref file) = CONFIG_FILES.lock().unwrap()[0] {
             Ok(MockFile::new(file.clone()))
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "File not found!"))
         }
     }
 
-    pub fn save_config() -> io::Result<<MockFilesystem<N> as Filesystem>::FSWrite> {
+    pub fn save_config() -> io::Result<<MockFilesystem<T> as Filesystem>::FSWrite> {
         let mut configs = CONFIG_FILES.lock().unwrap();
-        if let Some(ref file) = configs[N::to_usize()] {
+        if let Some(ref file) = configs[0] {
             return Ok(MockFile::new(file.clone()));
         }
 
         let file = Arc::new(Mutex::new(Vec::new()));
-        configs[N::to_usize()] = Some(file.clone());
+        configs[0] = Some(file.clone());
         Ok(MockFile::new(file))
     }
 
     pub fn reset() {
-        FILES.lock().unwrap().clear();
+        let backend = T::get_backend();
+        backend.files.lock().unwrap().clear();
     }
 
     pub fn get_inner<'a, P: AsRef<Path>>(path: P) -> Vec<u8> {
         // This function is very ugly, in general we would like to "unwrap" the file from the
         // mock filesystem. Sadly, there doesn't seem to be a better way.
-        let f = FILES.lock().unwrap().remove(path.as_ref()).unwrap();
+        let backend = T::get_backend();
+        let mut file_map = backend.files.lock().unwrap();
+        let f = file_map.remove(path.as_ref()).unwrap();
         let a = Arc::try_unwrap(f).unwrap();
         let m = a.lock().unwrap();
         let v = m.clone();
@@ -158,6 +194,8 @@ impl<N: Unsigned> MockFilesystem<N> {
     }
 
     pub fn put<'a, P: AsRef<Path>>(path: P, v: Vec<u8>) {
-        FILES.lock().unwrap().insert(path.as_ref().into(), Arc::new(Mutex::new(v)));
+        let backend = T::get_backend();
+        let mut file_map = backend.files.lock().unwrap();
+        file_map.insert(path.as_ref().into(), Arc::new(Mutex::new(v)));
     }
 }

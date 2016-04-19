@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate lazy_static;
-extern crate typenum;
 extern crate odds;
 
 extern crate rex;
@@ -15,7 +14,7 @@ use odds::vec::VecExt;
 
 use rex::frontend::{Event, KeyPress};
 
-use util::mock_filesystem::{DefMockFilesystem, MockFilesystem};
+use util::mock_filesystem::{ThreadLocalMockFilesystem, MockFilesystem};
 
 #[test]
 fn test_edit_overwrite() {
@@ -45,7 +44,7 @@ fn test_edit_overwrite() {
 
     let result = result_cursor.into_inner();
     edit.save(Path::new("test_copy_paste"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_copy_paste").iter());
+    util::assert_iter_eq(result.iter(), MockFilesystem::<ThreadLocalMockFilesystem>::get_inner("test_copy_paste").iter());
 }
 
 #[test]
@@ -75,7 +74,7 @@ fn test_edit_insert() {
     result.splice(len.., vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE]);
 
     edit.save(Path::new("test_edit_insert"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_edit_insert").iter());
+    util::assert_iter_eq(result.iter(), MockFilesystem::<ThreadLocalMockFilesystem>::get_inner("test_edit_insert").iter());
 }
 
 #[test]
@@ -122,5 +121,5 @@ fn test_edit_delete_and_bksp() {
     println!("result = {:?}", result);
 
     edit.save(Path::new("test_edit_delete_and_bksp"));
-    util::assert_iter_eq(result.iter(), DefMockFilesystem::get_inner("test_edit_delete_and_bksp").iter());
+    util::assert_iter_eq(result.iter(), MockFilesystem::<ThreadLocalMockFilesystem>::get_inner("test_edit_delete_and_bksp").iter());
 }
