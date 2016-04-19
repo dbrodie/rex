@@ -12,29 +12,6 @@ use rex::filesystem::Filesystem;
 
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
 
-pub trait MockFilesystemBackend {
-    fn get_backend() -> MockFilesystemImpl;
-}
-
-pub struct MockFilesystemImpl {
-    files: Arc<Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>>>,
-}
-
-impl Default for MockFilesystemImpl {
-    fn default() -> MockFilesystemImpl {
-        MockFilesystemImpl {
-            files: Arc::new(Mutex::new(HashMap::new()))
-        }
-    }
-}
-
-impl Clone for MockFilesystemImpl {
-    fn clone(&self) -> MockFilesystemImpl {
-        MockFilesystemImpl {
-            files: self.files.clone()
-        }
-    }
-}
 
 pub struct MockFile(Arc<Mutex<Vec<u8>>>, u64);
 
@@ -80,12 +57,46 @@ impl Write for MockFile {
     }
 }
 
+/// A backend for the mock filesystem, providing access to the actual filesystem data needed to
+/// implement the filesystem. This allows it to be saved in a per-thread or global basis, for
+/// example.
+pub trait MockFilesystemBackend {
+    /// Returns the file system implementation data, whereever it may be saved.
+    fn get_backend() -> MockFilesystemImpl;
+}
+
+struct MockFilesystemImpl {
+    files: Arc<Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>>>,
+}
+
+impl Default for MockFilesystemImpl {
+    fn default() -> MockFilesystemImpl {
+        MockFilesystemImpl {
+            files: Arc::new(Mutex::new(HashMap::new()))
+        }
+    }
+}
+
+impl Clone for MockFilesystemImpl {
+    fn clone(&self) -> MockFilesystemImpl {
+        MockFilesystemImpl {
+            files: self.files.clone()
+        }
+    }
+}
+
+/// A mock filesystem, providing basic filesystem APIs, the backend data storage is generic.
+pub struct MockFilesystem<T: MockFilesystemBackend + 'static = ThreadLocalMockFilesystemBackend>(PhantomData<T>);
+
 #[derive(Debug, Clone, Copy)]
-pub struct ThreadLocalMockFilesystem;
+struct ThreadLocalMockFilesystemBackend;
+
+/// A mock filesystem that saves seperate data per thread.
+pub type ThreadedMockFilesystem = MockFilesystem<ThreadLocalMockFilesystemBackend>;
 
 thread_local!(static THREAD_LOCAL_MOCK_FILESYSTEM: MockFilesystemImpl = Default::default());
 
-impl MockFilesystemBackend for ThreadLocalMockFilesystem {
+impl MockFilesystemBackend for ThreadLocalMockFilesystemBackend {
     fn get_backend() -> MockFilesystemImpl {
         let mut ret: Option<MockFilesystemImpl> = None;
         THREAD_LOCAL_MOCK_FILESYSTEM.with(
@@ -95,7 +106,6 @@ impl MockFilesystemBackend for ThreadLocalMockFilesystem {
     }
 }
 
-pub struct MockFilesystem<T: MockFilesystemBackend + 'static = ThreadLocalMockFilesystem>(PhantomData<T>);
 
 impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     type FSRead = MockFile;

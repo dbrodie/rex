@@ -10,19 +10,19 @@ use std::str;
 
 use rex::frontend::KeyPress;
 
-use util::mock_filesystem::{MockFilesystem, ThreadLocalMockFilesystem};
+use util::mock_filesystem::{MockFilesystem, ThreadedMockFilesystem};
 
 
 #[test]
 fn open_save_conf_test() {
     // Write a simple configuration file
     {
-        let mut f = MockFilesystem::<ThreadLocalMockFilesystem>::save_config().unwrap();
+        let mut f = ThreadedMockFilesystem::save_config().unwrap();
         f.write_all("show_ascii=false\n".as_bytes()).unwrap();
     }
 
     // Create an editor
-    let (mut edit, mut frontend) = util::simple_init_helper::<ThreadLocalMockFilesystem>(None);
+    let (mut edit, mut frontend) = util::simple_init_empty();
     let pedit = &mut edit;
 
     assert_eq!(pedit.get_config().show_ascii, false);
@@ -42,7 +42,7 @@ fn open_save_conf_test() {
 
     {
         let mut buf = Vec::new();
-        let mut f = MockFilesystem::<ThreadLocalMockFilesystem>::open_config().unwrap();
+        let mut f = ThreadedMockFilesystem::open_config().unwrap();
         f.read_to_end(&mut buf).unwrap();
         assert_eq!(str::from_utf8(&buf).unwrap().lines().next().unwrap(), "show_ascii=true");
     }

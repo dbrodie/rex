@@ -9,7 +9,7 @@ use std::path::Path;
 
 use rex::frontend::{Event, KeyPress};
 
-use util::mock_filesystem::{ThreadLocalMockFilesystem, MockFilesystem};
+use util::mock_filesystem::{ThreadedMockFilesystem, MockFilesystem};
 
 #[test]
 fn test_basic_open() {
@@ -21,7 +21,7 @@ fn test_basic_open() {
     let (mut edit, mut frontend) = util::simple_init_empty();
     let pedit = &mut edit;
 
-    MockFilesystem::<ThreadLocalMockFilesystem>::put("test_basic_open", v);
+    ThreadedMockFilesystem::put("test_basic_open", v);
 
     // Open file with the marker
     frontend.run_keys(pedit, vec![KeyPress::Shortcut('o')]);
@@ -55,5 +55,5 @@ fn test_basic_save() {
     frontend.run_keys(pedit, vec![KeyPress::Enter]);
 
     // Make sure they are equal
-    util::assert_iter_eq(v.iter(), MockFilesystem::<ThreadLocalMockFilesystem>::get_inner("test_basic_save").iter());
+    util::assert_iter_eq(v.iter(), ThreadedMockFilesystem::get_inner("test_basic_save").iter());
 }
