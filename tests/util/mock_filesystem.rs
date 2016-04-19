@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::io;
+use std::str;
 use std::io::{Cursor, Read, Write};
 use std::ops::DerefMut;
 use std::collections::hash_map::{HashMap, Entry};
@@ -12,17 +13,6 @@ use rex::filesystem::Filesystem;
 const NUM_CONFIG_TESTS: usize = 2;
 
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
-
-lazy_static! {
-    static ref FILES: Mutex<HashMap<PathBuf, Arc<Mutex<Vec<u8>>>>> = Mutex::new(HashMap::new());
-    static ref CONFIG_FILES: Mutex<[Option<Arc<Mutex<Vec<u8>>>>; NUM_CONFIG_TESTS]> = {
-        let mut tmp: [Option<Arc<Mutex<Vec<u8>>>>; NUM_CONFIG_TESTS] = [
-            None,
-            None
-        ];
-        Mutex::new(tmp)
-    };
-}
 
 pub trait MockFilesystemBackend {
     fn get_backend() -> MockFilesystemImpl;
@@ -122,9 +112,6 @@ impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     }
 
     fn open<P: AsRef<Path>>(path: P) -> io::Result<Self::FSRead> {
-        if path.as_ref() == Path::new(CONFIG_PATH) {
-            return Self::open_config()
-        }
         let backend = T::get_backend();
         let file_map = backend.files.lock().unwrap();
         file_map.get(path.as_ref()).ok_or(io::Error::new(io::ErrorKind::NotFound, "File not found!")).map(|file|
@@ -137,18 +124,11 @@ impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     }
 
     fn save<P: AsRef<Path>>(path: P) -> io::Result<Self::FSWrite> {
-        if path.as_ref() == Path::new(CONFIG_PATH) {
-            return Self::save_config()
-        }
-        let file = Arc::new(Mutex::new(Vec::new()));
         let backend = T::get_backend();
         let mut file_map = backend.files.lock().unwrap();
-        if let Entry::Vacant(entry) = file_map.entry(path.as_ref().into()) {
-            entry.insert(file.clone());
-            Ok(MockFile::new(file))
-        } else {
-            Err(io::Error::new(io::ErrorKind::AlreadyExists, "File alredy exists!"))
-        }
+        let file = file_map.entry(path.as_ref().into()).or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
+
+        Ok(MockFile::new(file.clone()))
     }
 
     fn can_save<P: AsRef<Path>>(_p: P) -> io::Result<()> {
@@ -158,22 +138,13 @@ impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
 
 impl<T: MockFilesystemBackend + 'static> MockFilesystem<T> {
     pub fn open_config() -> io::Result<<MockFilesystem<T> as Filesystem>::FSRead> {
-        if let Some(ref file) = CONFIG_FILES.lock().unwrap()[0] {
-            Ok(MockFile::new(file.clone()))
-        } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "File not found!"))
-        }
+        Self::open(CONFIG_PATH)
     }
 
     pub fn save_config() -> io::Result<<MockFilesystem<T> as Filesystem>::FSWrite> {
-        let mut configs = CONFIG_FILES.lock().unwrap();
-        if let Some(ref file) = configs[0] {
-            return Ok(MockFile::new(file.clone()));
-        }
+        Self::save(CONFIG_PATH)
+    }
 
-        let file = Arc::new(Mutex::new(Vec::new()));
-        configs[0] = Some(file.clone());
-        Ok(MockFile::new(file))
     }
 
     pub fn reset() {
