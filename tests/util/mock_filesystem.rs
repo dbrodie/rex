@@ -145,6 +145,10 @@ impl<T: MockFilesystemBackend + 'static> MockFilesystem<T> {
         Self::save(CONFIG_PATH)
     }
 
+    pub fn list_paths() -> Vec<PathBuf> {
+        let backend = T::get_backend();
+        let r : Vec<PathBuf> = backend.files.lock().unwrap().keys().map( |i| i.clone() ).collect();
+        r
     }
 
     pub fn reset() {
