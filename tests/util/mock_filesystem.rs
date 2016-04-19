@@ -106,6 +106,21 @@ impl MockFilesystemBackend for ThreadLocalMockFilesystemBackend {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct GlobalMockFilesystemBackend;
+
+/// A mock filesystem that saves seperate data per thread.
+pub type GlobalMockFilesystem = MockFilesystem<GlobalMockFilesystemBackend>;
+
+lazy_static!{
+    static ref GLOBAL_MOCK_FILESYSTEM: MockFilesystemImpl = Default::default();
+}
+
+impl MockFilesystemBackend for GlobalMockFilesystemBackend {
+    fn get_backend() -> MockFilesystemImpl {
+        GLOBAL_MOCK_FILESYSTEM.clone()
+    }
+}
 
 impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     type FSRead = MockFile;
