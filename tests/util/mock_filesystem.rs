@@ -10,8 +10,6 @@ use std::marker::PhantomData;
 
 use rex::filesystem::Filesystem;
 
-const NUM_CONFIG_TESTS: usize = 2;
-
 const CONFIG_PATH: &'static str = "/config/rex/rex.conf";
 
 pub trait MockFilesystemBackend {
