@@ -5,6 +5,7 @@ extern crate rustc_serialize;
 extern crate toml;
 extern crate itertools;
 extern crate odds;
+extern crate xdg;
 #[macro_use] extern crate custom_derive;
 #[macro_use] extern crate newtype_derive;
 #[cfg(test)] pub mod bench;
