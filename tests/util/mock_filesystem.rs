@@ -126,8 +126,12 @@ impl<T: MockFilesystemBackend + 'static> Filesystem for MockFilesystem<T> {
     type FSRead = MockFile;
     type FSWrite = MockFile;
 
-    fn get_config_home() -> PathBuf {
-        PathBuf::from("/config/")
+    fn open_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> Option<PathBuf> {
+        Some(PathBuf::from(CONFIG_PATH))
+    }
+    
+    fn save_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> io::Result<PathBuf> {
+        Ok(PathBuf::from(CONFIG_PATH))
     }
 
     fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {

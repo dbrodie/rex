@@ -1,6 +1,6 @@
 
 use std::default::Default;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::io;
 use std::io::{Read, Write};
 use std::fmt;
@@ -214,12 +214,14 @@ impl<FS: Filesystem+'static> Config<FS> {
         Err(ConfigError::TomlParserErrors(parser.errors))
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config<FS>, ConfigError> {
-        let mut s = String::new();
-        let mut f = try!(FS::open(path));
-        try!(f.read_to_string(&mut s));
+    pub fn from_file<P: AsRef<Path>>(path: Option<P>) -> Result<Config<FS>, ConfigError> {
         let mut config: Config<FS> = Default::default();
-        try!(config.set_from_string(&s));
+        if let Some(p) = path {
+            let mut s = String::new();
+            let mut f = try!(FS::open(p));
+            try!(f.read_to_string(&mut s));
+            try!(config.set_from_string(&s));
+        }
         Ok(config)
     }
 
@@ -230,18 +232,12 @@ impl<FS: Filesystem+'static> Config<FS> {
         }
         Ok(())
     }
-
-    fn get_config_path() -> PathBuf {
-        let p = FS::get_config_home();
-        p.join("rex").join("rex.conf")
-    }
-
     pub fn open_default() -> Result<Config<FS>, ConfigError> {
-        Self::from_file(Self::get_config_path())
+        Self::from_file(FS::open_config("rex", "rex.conf"))
     }
 
     pub fn save_default(&self) ->Result<(), ConfigError> {
-        self.to_file(Self::get_config_path())
+        self.to_file(try!(FS::save_config("rex", "rex.conf")))
     }
 }
 

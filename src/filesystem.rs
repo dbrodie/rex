@@ -6,10 +6,13 @@ use std::io::Read;
 use std::io::Write;
 use std::path::{PathBuf, Path};
 
+use xdg;
+
 pub trait Filesystem {
     type FSRead: Read;
     type FSWrite: Write;
-    fn get_config_home() -> PathBuf;
+    fn open_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> Option<PathBuf>;
+    fn save_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> io::Result<PathBuf>;
     fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf>;
     fn open<P: AsRef<Path>>(p: P) -> io::Result<Self::FSRead>;
     fn can_open<P: AsRef<Path>>(p: P) -> io::Result<()>;
@@ -22,12 +25,12 @@ impl Filesystem for DefaultFilesystem {
     type FSRead = File;
     type FSWrite = File;
 
-    fn get_config_home() -> PathBuf {
-        let mut p = PathBuf::new();
-        p.push(env::var("XDG_CONFIG_HOME").unwrap_or_else(
-                |_| env::var("HOME").unwrap_or("/".into()) + "/.config"
-            ));
-        p
+    fn open_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> Option<PathBuf> {
+        xdg::BaseDirectories::with_prefix(prefix).unwrap().find_config_file(config_name)
+    }
+
+    fn save_config<P1: AsRef<Path>, P2: AsRef<Path>>(prefix: P1, config_name: P2) -> io::Result<PathBuf> {
+        xdg::BaseDirectories::with_prefix(prefix).unwrap().place_config_file(config_name)
     }
 
     fn make_absolute<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
